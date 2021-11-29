@@ -1,4 +1,11 @@
-node_modules/
-build/
-typechain/
 abi/
+artifacts/
+cache/
+coverage/
+exports/
+node_modules/
+types/
+package-lock.json
+coverage.json
+.env
+.DS_Store
