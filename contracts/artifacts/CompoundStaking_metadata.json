@@ -14,12 +14,51 @@
 					},
 					{
 						"internalType": "uint256",
-						"name": "_tokenPerBlock",
+						"name": "_blocksInYear",
 						"type": "uint256"
 					}
 				],
 				"stateMutability": "nonpayable",
 				"type": "constructor"
+			},
+			{
+				"inputs": [],
+				"name": "apyDown",
+				"outputs": [
+					{
+						"internalType": "uint256",
+						"name": "",
+						"type": "uint256"
+					}
+				],
+				"stateMutability": "view",
+				"type": "function"
+			},
+			{
+				"inputs": [],
+				"name": "apyUp",
+				"outputs": [
+					{
+						"internalType": "uint256",
+						"name": "",
+						"type": "uint256"
+					}
+				],
+				"stateMutability": "view",
+				"type": "function"
+			},
+			{
+				"inputs": [],
+				"name": "blocksInYear",
+				"outputs": [
+					{
+						"internalType": "uint256",
+						"name": "",
+						"type": "uint256"
+					}
+				],
+				"stateMutability": "view",
+				"type": "function"
 			},
 			{
 				"inputs": [
@@ -122,11 +161,29 @@
 				"inputs": [
 					{
 						"internalType": "uint256",
-						"name": "_tokenPerBlock",
+						"name": "_apyUp",
+						"type": "uint256"
+					},
+					{
+						"internalType": "uint256",
+						"name": "_apyDown",
 						"type": "uint256"
 					}
 				],
-				"name": "setTokenPerBlock",
+				"name": "setApy",
+				"outputs": [],
+				"stateMutability": "nonpayable",
+				"type": "function"
+			},
+			{
+				"inputs": [
+					{
+						"internalType": "uint256",
+						"name": "_blocksInYear",
+						"type": "uint256"
+					}
+				],
+				"name": "setBlocksInYear",
 				"outputs": [],
 				"stateMutability": "nonpayable",
 				"type": "function"
@@ -146,19 +203,6 @@
 						"internalType": "contract IERC20",
 						"name": "",
 						"type": "address"
-					}
-				],
-				"stateMutability": "view",
-				"type": "function"
-			},
-			{
-				"inputs": [],
-				"name": "tokenPerBlock",
-				"outputs": [
-					{
-						"internalType": "uint256",
-						"name": "",
-						"type": "uint256"
 					}
 				],
 				"stateMutability": "view",
@@ -280,11 +324,11 @@
 	},
 	"sources": {
 		"contracts/CompoundStaking.sol": {
-			"keccak256": "0xe6e540cc7938ee2b553657e1c21e8a09b18e40ab2d131291ca5405a90c203ffe",
+			"keccak256": "0x360b9b03c75474fa31168a136d0c2df7b5a47545c21b0959c62a1c28c042e782",
 			"license": "MIT",
 			"urls": [
-				"bzz-raw://67647b0ac83e0f3d0b7adc2d805aacdace7cdc465850086ad2e6f01b0eb64200",
-				"dweb:/ipfs/QmaLxpg3JcbYyewD3qSSU93qUku6g6CYEicyKPZmhMQMUN"
+				"bzz-raw://351d28378636ebf2aaaef6c87d6c9a35409ee7da30a91442a8dcfca0ca950314",
+				"dweb:/ipfs/QmNPdWAnPdd1VqQ7CzSTL4YrA69usLX5BjKoQs774FDFWn"
 			]
 		},
 		"contracts/interfaces/IERC20.sol": {
