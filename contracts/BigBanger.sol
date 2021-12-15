@@ -12,7 +12,6 @@ interface IMigratorBigBanger {
     function migrate(IERC20 token) external returns (IERC20);
 }
 
-
 contract BigBanger is Ownable {
     using SafeMath for uint256;
     using SafeERC20 for IERC20;
@@ -70,7 +69,12 @@ contract BigBanger is Ownable {
     }
     
     function getPoolData(uint256 farm_id) external view returns (uint256, uint256, uint256, uint256) {
-        return (poolInfo[farm_id].allocPoint,totalAllocPoint,poolInfo[farm_id].lpToken.balanceOf(address(this)),relictPerBlock);
+        return (
+            poolInfo[farm_id].allocPoint,
+            totalAllocPoint,
+            poolInfo[farm_id].lpToken.balanceOf(address(this)),
+            relictPerBlock
+            );
     }
 
     function poolLength() external view returns (uint256) {

@@ -42,9 +42,10 @@ contract CompoundStaking {
         _;
     }
 
-    function setOwner(address _owner) public onlyOwner {
+    function transferOwnership(address _owner) public onlyOwner {
+        address oldOwner = owner;
         owner = _owner;
-        emit SetOwner(owner, _owner);
+        emit SetOwner(oldOwner, _owner);
     }
 
     function toggleRevert() public onlyOwner {
