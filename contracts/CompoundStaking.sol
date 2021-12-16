@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.8;
+
 import "./interfaces/IERC20.sol";
 
 contract CompoundStaking {
@@ -13,7 +14,9 @@ contract CompoundStaking {
 
     uint256 public totalShares;
     address public owner;
-    uint public tokenPerBlock;
+    uint public blocksInYear;
+    uint public apyUp;
+    uint public apyDown;
     uint public potentiallyMinted;
     uint public lastRewardBlock;
     uint public requiredBalance;
@@ -21,10 +24,10 @@ contract CompoundStaking {
 
     constructor(
         IERC20 _token,
-        uint _tokenPerBlock
+        uint _blocksInYear
     ) {
         token = _token;
-        tokenPerBlock = _tokenPerBlock;
+        blocksInYear = _blocksInYear;
         lastRewardBlock = block.number;
     }
 
@@ -39,6 +42,7 @@ contract CompoundStaking {
     }
 
     function updateRewardPool() public {
+        uint tokenPerBlock = apyUp * requiredBalance / apyDown / blocksInYear;
         uint delta = block.number - lastRewardBlock;
         uint potentialMint = delta * tokenPerBlock;
         potentiallyMinted += potentialMint;
@@ -46,9 +50,16 @@ contract CompoundStaking {
         lastRewardBlock = block.number;
     }
 
-    function setTokenPerBlock(uint _tokenPerBlock) public onlyOwner {
+    // TODO: array of oracles midifyer + owner
+    function setApy(uint _apyUp, uint _apyDown) public {
+        apyUp = _apyUp;
+        apyDown = _apyDown;
+    }
+
+    // TODO: array of oracles midifyer
+    function setBlocksInYear(uint _blocksInYear) public onlyOwner {
         updateRewardPool();
-        tokenPerBlock = _tokenPerBlock;
+        blocksInYear = _blocksInYear;
     }
 
     function toggleRevert() public onlyOwner {
