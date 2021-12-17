@@ -8,5 +8,14 @@ export const ADDRESS_ZERO = "0x0000000000000000000000000000000000000000"
 export function getBigNumber(amount: string | number | BigNumber, decimals = 18) {
   return BigNumber.from(amount).mul(BigNumber.from(BASE_TEN).pow(decimals))
 }
+export function expandTo18Decimals(n: number): BigNumber {
+  return BigNumber.from(n).mul(BigNumber.from(10).pow(18))
+}
+export async function mineBlocks(provider: any, blocks: number): Promise<void> {
+  while(blocks > 0) {
+      await provider.send("evm_mine")
+      blocks -= 1
+  }
+} 
 
 export * from "./time"
