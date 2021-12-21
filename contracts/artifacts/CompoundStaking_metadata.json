@@ -48,6 +48,25 @@
 				"type": "function"
 			},
 			{
+				"inputs": [
+					{
+						"internalType": "address",
+						"name": "_user",
+						"type": "address"
+					}
+				],
+				"name": "balanceOf",
+				"outputs": [
+					{
+						"internalType": "uint256",
+						"name": "",
+						"type": "uint256"
+					}
+				],
+				"stateMutability": "view",
+				"type": "function"
+			},
+			{
 				"inputs": [],
 				"name": "blocksInYear",
 				"outputs": [
@@ -71,6 +90,11 @@
 						"internalType": "uint256",
 						"name": "_amount",
 						"type": "uint256"
+					},
+					{
+						"internalType": "address",
+						"name": "_for",
+						"type": "address"
 					}
 				],
 				"name": "createTimeUnlock",
@@ -102,6 +126,19 @@
 					}
 				],
 				"stateMutability": "view",
+				"type": "function"
+			},
+			{
+				"inputs": [
+					{
+						"internalType": "address",
+						"name": "_user",
+						"type": "address"
+					}
+				],
+				"name": "moveUnlocked",
+				"outputs": [],
+				"stateMutability": "nonpayable",
 				"type": "function"
 			},
 			{
@@ -381,11 +418,11 @@
 	},
 	"sources": {
 		"contracts/CompoundStaking.sol": {
-			"keccak256": "0x32ebb2256c7e3d36cf19533c10613a7101470349b11ba07f1189c0ba2f0f735b",
+			"keccak256": "0x10ce1cd09b40e271d450a5a4318428dfbdb1072b0a87cdecfc7a06e054757338",
 			"license": "MIT",
 			"urls": [
-				"bzz-raw://dd86f579fa99c3c177faf396c114b213bd416568df5af936569ac558bafdef0e",
-				"dweb:/ipfs/Qma4v32XUSzM4obPRqKKetGZFGkaBQiChiBw7wxmD1CgFb"
+				"bzz-raw://c095dba3d5b2296ed9ed991f54893ff2ac6001b049cc2ca5bf6bea4b5d200104",
+				"dweb:/ipfs/QmSjUTZckT1A841pRoKARdLHpCX5aCLjQJLQkeoTcBAYJ5"
 			]
 		},
 		"contracts/interfaces/IERC20.sol": {
