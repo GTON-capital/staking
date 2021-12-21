@@ -7,9 +7,17 @@ contract CompoundStaking {
     struct UserInfo {
         uint share;
         uint tokenAtLastUserAction;
+        uint rewardDebt;
+    }
+
+    struct UserUnlock {
+        uint delta;
+        uint amount;
+        uint startBlock;
     }
 
     IERC20 public immutable token;
+    mapping (address => UserUnlock[]) public userUnlock;
     mapping(address => UserInfo) public userInfo;
 
     uint256 public totalShares;
@@ -39,6 +47,27 @@ contract CompoundStaking {
     modifier onlyOwner() {
         require(msg.sender == owner, "owner: wut?");
         _;
+    }
+
+    function createTimeUnlock(uint _delta, uint _amount) public {
+        updateRewardPool();
+        require(_amount > 0, "Nothing to deposit");
+        require(token.transferFrom(msg.sender,address(this),_amount),"");
+        uint256 currentShares = 0;
+        if (totalShares != 0) {
+            currentShares = _amount * totalShares / requiredBalance;
+        } else {
+            currentShares = _amount;
+        }
+        UserUnlock[] storage userUn = userUnlock[msg.sender];
+        userUn.push( UserUnlock({
+            delta: _delta,
+            amount: currentShares,
+            startBlock: block.number
+        }));
+
+        totalShares += currentShares;
+        requiredBalance += _amount;
     }
 
     function updateRewardPool() public {
@@ -91,18 +120,53 @@ contract CompoundStaking {
     }
 
     function pendingReward(address _user) public view returns(uint) {
-        return userInfo[_user].share * requiredBalance / totalShares;
+        uint totalAmount = 0;
+        uint totalCurrent = 0;
+
+        UserInfo memory user = userInfo[msg.sender];
+        UserUnlock[] memory userUn = userUnlock[msg.sender];
+        for(uint i = 0; i < userUn.length;i++) {
+            totalCurrent = userUn[i].delta * (block.number - userUn[i].startBlock) / userUn[i].amount;
+            totalAmount += userUn[i].amount;
+            i++;
+        }
+        uint plain = userInfo[_user].share * requiredBalance / totalShares;
+        return (plain + totalCurrent - user.rewardDebt);
     }
 
     function withdraw(uint256 _share) public {
         updateRewardPool();
+
+        uint totalAmount = 0;
+        uint totalCurrent = 0;
+
         UserInfo storage user = userInfo[msg.sender];
-        require(_share > 0, "Nothing to withdraw");
-        require(_share <= user.share, "Withdraw amount exceeds balance");
+        UserUnlock[] storage userUn = userUnlock[msg.sender];
+        for(uint i = 0; i < userUn.length;i++) {
+            totalCurrent = userUn[i].delta * (block.number - userUn[i].startBlock) / userUn[i].amount;
+            totalAmount += userUn[i].amount;
+            i++;
+        }
+
+        require(_share <= user.share + totalCurrent - user.rewardDebt, "Withdraw amount exceeds balance");
+        if (totalCurrent + _share <= totalAmount) {
+            user.rewardDebt += _share;
+        } else {
+            user.rewardDebt = totalAmount;
+            user.share -= (_share - totalAmount);
+        }
+
+        for(uint i = userUn.length; i >= 0;) {
+            if (block.number >= userUn[i].startBlock + userUn[i].delta && user.rewardDebt >= userUn[i].amount) {
+                userUn.pop();
+                user.rewardDebt -= userUn[i].amount;
+            }  else {
+                i--;
+            }
+        }
 
         uint256 currentAmount = requiredBalance * _share / totalShares;
-        user.share = user.share - _share;
-        totalShares = totalShares - _share;
+        totalShares -= _share;
 
         requiredBalance -= currentAmount;
         require(token.transfer(msg.sender,currentAmount),"");
