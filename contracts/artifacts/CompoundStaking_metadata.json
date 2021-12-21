@@ -64,6 +64,24 @@
 				"inputs": [
 					{
 						"internalType": "uint256",
+						"name": "_delta",
+						"type": "uint256"
+					},
+					{
+						"internalType": "uint256",
+						"name": "_amount",
+						"type": "uint256"
+					}
+				],
+				"name": "createTimeUnlock",
+				"outputs": [],
+				"stateMutability": "nonpayable",
+				"type": "function"
+			},
+			{
+				"inputs": [
+					{
+						"internalType": "uint256",
 						"name": "_amount",
 						"type": "uint256"
 					}
@@ -247,6 +265,45 @@
 						"internalType": "uint256",
 						"name": "tokenAtLastUserAction",
 						"type": "uint256"
+					},
+					{
+						"internalType": "uint256",
+						"name": "rewardDebt",
+						"type": "uint256"
+					}
+				],
+				"stateMutability": "view",
+				"type": "function"
+			},
+			{
+				"inputs": [
+					{
+						"internalType": "address",
+						"name": "",
+						"type": "address"
+					},
+					{
+						"internalType": "uint256",
+						"name": "",
+						"type": "uint256"
+					}
+				],
+				"name": "userUnlock",
+				"outputs": [
+					{
+						"internalType": "uint256",
+						"name": "delta",
+						"type": "uint256"
+					},
+					{
+						"internalType": "uint256",
+						"name": "amount",
+						"type": "uint256"
+					},
+					{
+						"internalType": "uint256",
+						"name": "startBlock",
+						"type": "uint256"
 					}
 				],
 				"stateMutability": "view",
@@ -324,11 +381,11 @@
 	},
 	"sources": {
 		"contracts/CompoundStaking.sol": {
-			"keccak256": "0x360b9b03c75474fa31168a136d0c2df7b5a47545c21b0959c62a1c28c042e782",
+			"keccak256": "0x32ebb2256c7e3d36cf19533c10613a7101470349b11ba07f1189c0ba2f0f735b",
 			"license": "MIT",
 			"urls": [
-				"bzz-raw://351d28378636ebf2aaaef6c87d6c9a35409ee7da30a91442a8dcfca0ca950314",
-				"dweb:/ipfs/QmNPdWAnPdd1VqQ7CzSTL4YrA69usLX5BjKoQs774FDFWn"
+				"bzz-raw://dd86f579fa99c3c177faf396c114b213bd416568df5af936569ac558bafdef0e",
+				"dweb:/ipfs/Qma4v32XUSzM4obPRqKKetGZFGkaBQiChiBw7wxmD1CgFb"
 			]
 		},
 		"contracts/interfaces/IERC20.sol": {
