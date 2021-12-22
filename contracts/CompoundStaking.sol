@@ -7,9 +7,9 @@ import "hardhat/console.sol";
 contract CompoundStaking {
 
     address public owner;
-    bool public revertFlag;
-    uint public totalShares;
-    uint public tokenPerBlock;
+    uint public blocksInYear;
+    uint public apyUp;
+    uint public apyDown;
     uint public potentiallyMinted;
     uint public lastRewardBlock;
     uint public requiredBalance;
@@ -25,11 +25,11 @@ contract CompoundStaking {
 
     constructor(
         IERC20 _token,
-        uint _tokenPerBlock
+        uint _blocksInYear
     ) {
         owner = msg.sender;
         token = _token;
-        tokenPerBlock = _tokenPerBlock;
+        blocksInYear = _blocksInYear;
         lastRewardBlock = block.number;
     }
 
@@ -53,10 +53,25 @@ contract CompoundStaking {
         revertFlag = !revertFlag;
         emit RevertFlag(revertFlag);
     }
+    function updateRewardPool() public {
+        uint tokenPerBlock = apyUp * requiredBalance / apyDown / blocksInYear;
+        uint delta = block.number - lastRewardBlock;
+        uint potentialMint = delta * tokenPerBlock;
+        potentiallyMinted += potentialMint;
+        requiredBalance += potentialMint;
+        lastRewardBlock = block.number;
+    }
 
-    function setTokenPerBlock(uint _tokenPerBlock) public onlyOwner {
+    // TODO: array of oracles midifyer + owner
+    function setApy(uint _apyUp, uint _apyDown) public {
+        apyUp = _apyUp;
+        apyDown = _apyDown;
+    }
+
+    // TODO: array of oracles midifyer
+    function setBlocksInYear(uint _blocksInYear) public onlyOwner {
         updateRewardPool();
-        tokenPerBlock = _tokenPerBlock;
+        blocksInYear = _blocksInYear;
     }
 
     function withdrawToken(IERC20 _token, address _to, uint _amount) public onlyOwner {
