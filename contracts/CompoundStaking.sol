@@ -69,13 +69,16 @@ contract CompoundStaking is IERC20 {
     event SetApy(uint oldDown, uint oldUp, uint newDown, uint newUp);
     event SetBlockInYear(uint oldBlocksInYear, uint newBlocksInYear);
     
-    function totalSupply() external view returns (uint256) {
-        return requiredBalance;
+    function totalSupply() public view returns (uint256) {
+        uint tokenPerBlock = apyUp * requiredBalance / apyDown / blocksInYear;
+        uint delta = block.number - lastRewardBlock;
+        uint potentialMint = delta * tokenPerBlock;
+        return requiredBalance+potentialMint;
     }
 
-    function balanceOf(address _user) public view returns(uint) { 
+    function balanceOf(address _user) public view returns(uint) {
         if(totalShares <= 0) return 0;
-        return userInfo[_user].share * requiredBalance / totalShares;
+        return userInfo[_user].share * totalSupply() / totalShares;
     }
 
     function shareToBalance(uint _share) public view returns(uint) { 
@@ -98,7 +101,7 @@ contract CompoundStaking is IERC20 {
         }
     }
 
-    function setApy(uint _apyUp, uint _apyDown) public onlyOwner {
+    function setApy(uint _apyUp, uint _apyDown) public onlyAdmin {
         uint oldDown = apyDown;
         uint oldUp = apyUp;
         apyUp = _apyUp;
@@ -106,7 +109,7 @@ contract CompoundStaking is IERC20 {
         emit SetApy(oldDown, oldUp, _apyDown, _apyUp);
     }
 
-    function setBlocksInYear(uint _blocksInYear) public onlyOwner {
+    function setBlocksInYear(uint _blocksInYear) public onlyAdmin {
         updateRewardPool();
         uint oldBlocksInYear = blocksInYear;
         blocksInYear = _blocksInYear;
