@@ -2,8 +2,25 @@
 pragma solidity 0.8.8;
 
 import "./interfaces/IERC20.sol";
+import "./libraries/AddressArrayLibrary.sol";
 
 contract CompoundStaking is IERC20 {
+    string public name;
+    string public symbol;
+
+    address public owner;
+    
+    bool public revertFlag;
+    uint public totalShares;
+    uint public potentiallyMinted;
+    uint public lastRewardBlock;
+    uint public requiredBalance;
+    uint public blocksInYear;
+    uint public apyUp;
+    uint public apyDown;
+    uint public decimals;
+    address[] public lpAdmins;
+
     struct UserInfo {
         uint share;
         uint tokenAtLastUserAction;
@@ -13,39 +30,116 @@ contract CompoundStaking is IERC20 {
     mapping(address => UserInfo) public userInfo;
     mapping(address => mapping(address => uint)) public allowances;
 
-    uint256 public totalShares;
-    address public owner;
-    uint public blocksInYear;
-    uint public apyUp;
-    uint public apyDown;
-    uint public potentiallyMinted;
-    uint public lastRewardBlock;
-    uint public requiredBalance;
-    bool public revertFlag;
-    string public name;
-    string public symbol;
-    uint public decimals;
-
     constructor(
         IERC20 _token,
         uint _blocksInYear,
         string memory _name,
-        string memory _symbol
+        string memory _symbol,
+        uint _apyUp,
+        uint _apyDown
     ) {
+        owner = msg.sender;
         token = _token;
         blocksInYear = _blocksInYear;
         lastRewardBlock = block.number;
         decimals = token.decimals();
         name = _name;
         symbol = _symbol;
+        apyUp = _apyUp;
+        apyDown = _apyDown;
     }
 
+    modifier notReverted() {
+        require(!revertFlag, "Compound: reverted flag on.");
+        _;
+    }
+
+    modifier onlyOwner() {
+        require(msg.sender == owner, "Compound: permitted to owner only.");
+        _;
+    }
+
+    modifier onlyAdmin() {
+        require(msg.sender==owner || AddressArrayLib.indexOf(lpAdmins, msg.sender) != -1, "Compound: permitted to admins only");
+        _;
+    }
+
+    event RevertFlag(bool flag);
+    event SetOwner(address oldOwner, address newOwner);
+    event SetApy(uint oldDown, uint oldUp, uint newDown, uint newUp);
+    event SetBlockInYear(uint oldBlocksInYear, uint newBlocksInYear);
+    
     function totalSupply() external view returns (uint256) {
         return requiredBalance;
     }
 
+    function balanceOf(address _user) public view returns(uint) { 
+        if(totalShares <= 0) return 0;
+        return userInfo[_user].share * requiredBalance / totalShares;
+    }
+
+    function shareToBalance(uint _share) public view returns(uint) { 
+        return _share * requiredBalance / totalShares;
+    }
+
+    function balanceToShare(uint _balance) public view returns(uint) { 
+        return _balance * totalShares / requiredBalance;
+    }
+
+    function setAdmins(address[] memory admins) public onlyOwner {
+        for(uint i = 0; i < admins.length; i++) {
+            lpAdmins.push(admins[i]);
+        }
+    }
+
+    function removeAdmins(address[] memory admins) public onlyOwner {
+        for(uint i = 0; i < admins.length; i++) {
+            AddressArrayLib.removeItem(lpAdmins, admins[i]);
+        }
+    }
+
+    function setApy(uint _apyUp, uint _apyDown) public onlyOwner {
+        uint oldDown = apyDown;
+        uint oldUp = apyUp;
+        apyUp = _apyUp;
+        apyDown = _apyDown;
+        emit SetApy(oldDown, oldUp, _apyDown, _apyUp);
+    }
+
+    function setBlocksInYear(uint _blocksInYear) public onlyOwner {
+        updateRewardPool();
+        uint oldBlocksInYear = blocksInYear;
+        blocksInYear = _blocksInYear;
+        emit SetBlockInYear(oldBlocksInYear, _blocksInYear);
+    }
+
+    function toggleRevert() public onlyOwner {
+        revertFlag = !revertFlag;
+    }
+
+    function withdrawToken(IERC20 _token, address _to, uint _amount) public onlyOwner {
+            require(_token.transfer(_to,_amount));
+    }
+
+    function transferOwnership(address _owner) public onlyOwner {
+        address oldOwner = owner;
+        owner = _owner;
+        emit SetOwner(oldOwner, _owner);
+    }
+
     function allowance(address _owner, address spender) external view returns (uint256) {
         return allowances[_owner][spender];
+    }
+
+    function _approve(
+        address _owner,
+        address spender,
+        uint256 amount
+    ) internal virtual {
+        require(_owner != address(0), "ERC20: approve from the zero address");
+        require(spender != address(0), "ERC20: approve to the zero address");
+        allowances[_owner][spender] = amount;
+        emit Approval(_owner, spender, amount);
     }
 
     function approve(address spender, uint amount) public virtual override returns (bool) {
@@ -74,37 +168,17 @@ contract CompoundStaking is IERC20 {
         return true;
     }
 
-    function _approve(
-        address _owner,
-        address spender,
-        uint256 amount
-    ) internal virtual {
-        require(_owner != address(0), "ERC20: approve from the zero address");
-        require(spender != address(0), "ERC20: approve to the zero address");
-        allowances[_owner][spender] = amount;
-        emit Approval(_owner, spender, amount);
-    }
 
     function transferFrom(
-        address sender,
+        address spender,
         address recipient,
         uint256 amount
     ) public virtual override returns (bool) {
-        _transfer(sender, recipient, amount);
-        uint256 currentAllowance = allowances[sender][msg.sender];
+        _transfer(spender, recipient, amount);
+        uint256 currentAllowance = allowances[spender][msg.sender];
         require(currentAllowance >= amount, "ERC20: transfer amount exceeds allowance");
-        _approve(sender, msg.sender, currentAllowance - amount);
+        _approve(spender, msg.sender, currentAllowance - amount);
         return true;
-    }
-
-    modifier notReverted() {
-        require(!revertFlag, "owner: wut?");
-        _;
-    }
-
-    modifier onlyOwner() {
-        require(msg.sender == owner, "owner: wut?");
-        _;
     }
 
     function updateRewardPool() public {
@@ -116,29 +190,9 @@ contract CompoundStaking is IERC20 {
         lastRewardBlock = block.number;
     }
 
-    // TODO: array of oracles midifyer + owner
-    function setApy(uint _apyUp, uint _apyDown) public {
-        apyUp = _apyUp;
-        apyDown = _apyDown;
-    }
-
-    // TODO: array of oracles midifyer + owner
-    function setBlocksInYear(uint _blocksInYear) public {
-        updateRewardPool();
-        blocksInYear = _blocksInYear;
-    }
-
-    function toggleRevert() public onlyOwner {
-        revertFlag = !revertFlag;
-    }
-
-    function withdrawToken(IERC20 _token, address _to, uint _amount) public onlyOwner {
-            require(_token.transfer(_to,_amount));
-    }
-
     function mint(uint _amount, address _to) external {
         updateRewardPool();
-        require(_amount > 0, "Nothing to deposit");
+        require(_amount > 0, "Compound: Nothing to deposit");
         require(token.transferFrom(msg.sender,address(this),_amount),"");
         uint256 currentShares = 0;
         if (totalShares != 0) {
@@ -146,36 +200,24 @@ contract CompoundStaking is IERC20 {
         } else {
             currentShares = _amount;
         }
+        totalShares += currentShares;
+        requiredBalance += _amount;
         UserInfo storage user = userInfo[_to];
         user.share += currentShares;
         user.tokenAtLastUserAction = balanceOf(_to);
-        totalShares += currentShares;
-        requiredBalance += _amount;
-    }
-
-    function balanceOf(address _user) public view returns(uint) { 
-        return userInfo[_user].share * requiredBalance / totalShares;
-    }
-
-    function shareToBalance(uint _share) public view returns(uint) { 
-        return _share * requiredBalance / totalShares;
-    }
-
-    function balanceToShare(uint _balance) public view returns(uint) { 
-        return _balance * totalShares / requiredBalance;
     }
 
     function burn(address _to, uint256 _share) public {
         updateRewardPool();
+        require(_share > 0, "Compound: Nothing to burn");
 
         UserInfo storage user = userInfo[msg.sender];
-        require(_share <= user.share, "Withdraw amount exceeds balance");
+        require(_share <= user.share, "Compound: Withdraw amount exceeds balance");
         uint256 currentAmount = requiredBalance * _share / totalShares;
-    
         user.share -= _share;
         totalShares -= _share;
         requiredBalance -= currentAmount;
         user.tokenAtLastUserAction = balanceOf(msg.sender);
-        require(token.transfer(_to,currentAmount),"not enough token to transfer");
+        require(token.transfer(_to,currentAmount),"Compound: Not enough token to transfer");
     }
 }
