@@ -26,6 +26,16 @@
 						"internalType": "string",
 						"name": "_symbol",
 						"type": "string"
+					},
+					{
+						"internalType": "uint256",
+						"name": "_apyUp",
+						"type": "uint256"
+					},
+					{
+						"internalType": "uint256",
+						"name": "_apyDown",
+						"type": "uint256"
 					}
 				],
 				"stateMutability": "nonpayable",
@@ -54,6 +64,88 @@
 					}
 				],
 				"name": "Approval",
+				"type": "event"
+			},
+			{
+				"anonymous": false,
+				"inputs": [
+					{
+						"indexed": false,
+						"internalType": "bool",
+						"name": "flag",
+						"type": "bool"
+					}
+				],
+				"name": "RevertFlag",
+				"type": "event"
+			},
+			{
+				"anonymous": false,
+				"inputs": [
+					{
+						"indexed": false,
+						"internalType": "uint256",
+						"name": "oldDown",
+						"type": "uint256"
+					},
+					{
+						"indexed": false,
+						"internalType": "uint256",
+						"name": "oldUp",
+						"type": "uint256"
+					},
+					{
+						"indexed": false,
+						"internalType": "uint256",
+						"name": "newDown",
+						"type": "uint256"
+					},
+					{
+						"indexed": false,
+						"internalType": "uint256",
+						"name": "newUp",
+						"type": "uint256"
+					}
+				],
+				"name": "SetApy",
+				"type": "event"
+			},
+			{
+				"anonymous": false,
+				"inputs": [
+					{
+						"indexed": false,
+						"internalType": "uint256",
+						"name": "oldBlocksInYear",
+						"type": "uint256"
+					},
+					{
+						"indexed": false,
+						"internalType": "uint256",
+						"name": "newBlocksInYear",
+						"type": "uint256"
+					}
+				],
+				"name": "SetBlockInYear",
+				"type": "event"
+			},
+			{
+				"anonymous": false,
+				"inputs": [
+					{
+						"indexed": false,
+						"internalType": "address",
+						"name": "oldOwner",
+						"type": "address"
+					},
+					{
+						"indexed": false,
+						"internalType": "address",
+						"name": "newOwner",
+						"type": "address"
+					}
+				],
+				"name": "SetOwner",
 				"type": "event"
 			},
 			{
@@ -278,6 +370,25 @@
 				"inputs": [
 					{
 						"internalType": "uint256",
+						"name": "",
+						"type": "uint256"
+					}
+				],
+				"name": "lpAdmins",
+				"outputs": [
+					{
+						"internalType": "address",
+						"name": "",
+						"type": "address"
+					}
+				],
+				"stateMutability": "view",
+				"type": "function"
+			},
+			{
+				"inputs": [
+					{
+						"internalType": "uint256",
 						"name": "_amount",
 						"type": "uint256"
 					},
@@ -332,6 +443,19 @@
 				"type": "function"
 			},
 			{
+				"inputs": [
+					{
+						"internalType": "address[]",
+						"name": "admins",
+						"type": "address[]"
+					}
+				],
+				"name": "removeAdmins",
+				"outputs": [],
+				"stateMutability": "nonpayable",
+				"type": "function"
+			},
+			{
 				"inputs": [],
 				"name": "requiredBalance",
 				"outputs": [
@@ -355,6 +479,19 @@
 					}
 				],
 				"stateMutability": "view",
+				"type": "function"
+			},
+			{
+				"inputs": [
+					{
+						"internalType": "address[]",
+						"name": "admins",
+						"type": "address[]"
+					}
+				],
+				"name": "setAdmins",
+				"outputs": [],
+				"stateMutability": "nonpayable",
 				"type": "function"
 			},
 			{
@@ -494,7 +631,7 @@
 				"inputs": [
 					{
 						"internalType": "address",
-						"name": "sender",
+						"name": "spender",
 						"type": "address"
 					},
 					{
@@ -516,6 +653,19 @@
 						"type": "bool"
 					}
 				],
+				"stateMutability": "nonpayable",
+				"type": "function"
+			},
+			{
+				"inputs": [
+					{
+						"internalType": "address",
+						"name": "_owner",
+						"type": "address"
+					}
+				],
+				"name": "transferOwnership",
+				"outputs": [],
 				"stateMutability": "nonpayable",
 				"type": "function"
 			},
@@ -602,11 +752,11 @@
 	},
 	"sources": {
 		"contracts/CompoundStaking.sol": {
-			"keccak256": "0x514ba193071ed5be532fe4e5ebc13d7cf44decec7498503d3ab7a5dabe49c61f",
+			"keccak256": "0x4d30ecd183681924a44bd1446056c6af7710dbebc75d6af3353c61a1d51fb0af",
 			"license": "MIT",
 			"urls": [
-				"bzz-raw://c702ece6a748877af9984bf31e6c76d92a739aacc1e8f5e94bbb8e25db981831",
-				"dweb:/ipfs/QmQo9vcRPo74CBUn8j4hqAHbEoG4pk1ZVdzJniqLf8tt5a"
+				"bzz-raw://fd63cbdcb996af8ea02e996d574a3632d8eb32222f02644dcc4d6af6ab01fc9c",
+				"dweb:/ipfs/QmYJdpXBpzy6Sh6THpWyKrzP6vtp6AFfEVrT4B7NwYY6Uo"
 			]
 		},
 		"contracts/interfaces/IERC20.sol": {
@@ -615,6 +765,14 @@
 			"urls": [
 				"bzz-raw://c863552a9cf6dfb8573c001525cebaf3b177fbc285f124ea759029ce6130d7ad",
 				"dweb:/ipfs/Qmb5Uo8HTGCNhjSDyYmbx4V5u7GQSogpRdadhoJsCPpqhe"
+			]
+		},
+		"contracts/libraries/AddressArrayLibrary.sol": {
+			"keccak256": "0xee5c09f7f6a807265814612e9d24626403360e6e1d8af0d61e819e969b1e531e",
+			"license": "MIT",
+			"urls": [
+				"bzz-raw://e89736701a212c4a667565e030d22aec36070580a28c6e965deb69c605319d7e",
+				"dweb:/ipfs/Qmf6EFi25vjmJm9oq8Qzhopn6aAzbeaX5ezwjmKKR2bpQe"
 			]
 		}
 	},
