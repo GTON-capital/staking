@@ -171,6 +171,17 @@ contract CompoundStaking is IERC20 {
         return true;
     }
 
+    function transferShare(
+        address from,
+        address to,
+        uint share
+    ) public {
+        require(userInfo[from].share >= share, "insufficent balance");
+        userInfo[from].share -= share;
+        userInfo[to].share += share;
+        userInfo[from].tokenAtLastUserAction = balanceOf(from);
+        userInfo[to].tokenAtLastUserAction = balanceOf(to);
+    }   
 
     function transferFrom(
         address spender,
