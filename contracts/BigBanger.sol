@@ -22,19 +22,19 @@ contract BigBanger is Ownable {
     // Info of each pool.
     struct PoolInfo {
         IERC20 lpToken; // Address of LP token contract.
-        uint256 allocPoint; // How many allocation points assigned to this pool. SUSHIs to distribute per block.
-        uint256 lastRewardBlock; // Last block number that SUSHIs distribution occurs.
-        uint256 accRelictPerShare; // Accumulated SUSHIs per share, times 1e12. See below.
+        uint256 allocPoint; // How many allocation points assigned to this pool. RelictGtons to distribute per block.
+        uint256 lastRewardBlock; // Last block number that RelictGtons distribution occurs.
+        uint256 accRelictPerShare; // Accumulated RelictGtons per share, times 1e12. See below.
     }
-    // The SUSHI TOKEN!
+    // The RelictGton TOKEN!
     RelictGtonToken public relict;
     // Dev address.
     address public devaddr;
-    // Block number when bonus SUSHI period ends.
+    // Block number when bonus RelictGton period ends.
     uint256 public bonusEndBlock;
-    // SUSHI tokens created per block.
+    // RelictGton tokens created per block.
     uint256 public relictPerBlock;
-    // Bonus muliplier for early sushi makers.
+    // Bonus muliplier for early RelictGton makers.
     uint256 public constant BONUS_MULTIPLIER = 10;
     // The migrator contract. It has a lot of power. Can only be set through governance (owner).
     IMigratorBigBanger public migrator;
@@ -44,7 +44,7 @@ contract BigBanger is Ownable {
     mapping(uint256 => mapping(address => UserInfo)) public userInfo;
     // Total allocation poitns. Must be the sum of all allocation points in all pools.
     uint256 public totalAllocPoint = 0;
-    // The block number when SUSHI mining starts.
+    // The block number when RelictGton mining starts.
     uint256 public startBlock;
     event Deposit(address indexed user, uint256 indexed pid, uint256 amount);
     event Withdraw(address indexed user, uint256 indexed pid, uint256 amount);
@@ -104,7 +104,7 @@ contract BigBanger is Ownable {
         );
     }
 
-    // Update the given pool's SUSHI allocation point. Can only be called by the owner.
+    // Update the given pool's RelictGton allocation point. Can only be called by the owner.
     function set(
         uint256 _pid,
         uint256 _allocPoint,
@@ -154,7 +154,7 @@ contract BigBanger is Ownable {
         }
     }
 
-    // View function to see pending SUSHIs on frontend.
+    // View function to see pending RelictGtons on frontend.
     function pendingRelict(uint256 _pid, address _user)
         external
         view
@@ -210,7 +210,7 @@ contract BigBanger is Ownable {
         pool.lastRewardBlock = block.number;
     }
 
-    // Deposit LP tokens to MasterChef for SUSHI allocation.
+    // Deposit LP tokens to BigBanger for RelictGton allocation.
     function deposit(uint256 _pid, uint256 _amount) public {
         PoolInfo storage pool = poolInfo[_pid];
         UserInfo storage user = userInfo[_pid][msg.sender];
@@ -232,7 +232,7 @@ contract BigBanger is Ownable {
         emit Deposit(msg.sender, _pid, _amount);
     }
 
-    // Withdraw LP tokens from MasterChef.
+    // Withdraw LP tokens from BigBanger.
     function withdraw(uint256 _pid, uint256 _amount) public {
         PoolInfo storage pool = poolInfo[_pid];
         UserInfo storage user = userInfo[_pid][msg.sender];
@@ -259,7 +259,7 @@ contract BigBanger is Ownable {
         user.rewardDebt = 0;
     }
 
-    // Safe sushi transfer function, just in case if rounding error causes pool to not have enough relicts.
+    // Safe RelictGton transfer function, just in case if rounding error causes pool to not have enough relicts.
     function safeRelictTransfer(address _to, uint256 _amount) internal {
         uint256 relictBal = relict.balanceOf(address(this));
         if (_amount > relictBal) {
