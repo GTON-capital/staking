@@ -770,11 +770,11 @@
 	},
 	"sources": {
 		"contracts/CompoundStaking.sol": {
-			"keccak256": "0x5595baf8770538cba953de43dd35d58e06a344a478aabe0ee1d7682f895f2e78",
+			"keccak256": "0x03d38e6006846a6cf70d0dbe2596bb8a23a79fe8988768accec1eeb4d433a202",
 			"license": "MIT",
 			"urls": [
-				"bzz-raw://d7b0e6bc57b69361ba8655c52327627050d09c9061cc6758d71a461548e87d9d",
-				"dweb:/ipfs/QmZHdGRkAvSEMpJ1Tj3a2oCVQ2ytN4MaL7u9mLiud9Sosr"
+				"bzz-raw://90ca11df41e3c0c7a4eae5c2ff0d4c9e5b4148990880006d68fe3d3f57139278",
+				"dweb:/ipfs/QmP8im4peVZDR6zxtM8ALzfVbPagNotGDxDFrg9rGW8uFX"
 			]
 		},
 		"contracts/interfaces/IERC20.sol": {
