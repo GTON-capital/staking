@@ -670,6 +670,24 @@
 				"type": "function"
 			},
 			{
+				"inputs": [
+					{
+						"internalType": "address",
+						"name": "to",
+						"type": "address"
+					},
+					{
+						"internalType": "uint256",
+						"name": "share",
+						"type": "uint256"
+					}
+				],
+				"name": "transferShare",
+				"outputs": [],
+				"stateMutability": "nonpayable",
+				"type": "function"
+			},
+			{
 				"inputs": [],
 				"name": "updateRewardPool",
 				"outputs": [],
@@ -752,11 +770,11 @@
 	},
 	"sources": {
 		"contracts/CompoundStaking.sol": {
-			"keccak256": "0x4d30ecd183681924a44bd1446056c6af7710dbebc75d6af3353c61a1d51fb0af",
+			"keccak256": "0x5595baf8770538cba953de43dd35d58e06a344a478aabe0ee1d7682f895f2e78",
 			"license": "MIT",
 			"urls": [
-				"bzz-raw://fd63cbdcb996af8ea02e996d574a3632d8eb32222f02644dcc4d6af6ab01fc9c",
-				"dweb:/ipfs/QmYJdpXBpzy6Sh6THpWyKrzP6vtp6AFfEVrT4B7NwYY6Uo"
+				"bzz-raw://d7b0e6bc57b69361ba8655c52327627050d09c9061cc6758d71a461548e87d9d",
+				"dweb:/ipfs/QmZHdGRkAvSEMpJ1Tj3a2oCVQ2ytN4MaL7u9mLiud9Sosr"
 			]
 		},
 		"contracts/interfaces/IERC20.sol": {
