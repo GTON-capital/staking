@@ -218,6 +218,7 @@ contract CompoundStaking is IERC20 {
         UserInfo storage user = userInfo[_to];
         user.share += currentShares;
         user.tokenAtLastUserAction = balanceOf(_to);
+        emit Transfer(address(0), _to, _amount);
     }
 
     function burn(address _to, uint256 _share) public {
@@ -232,5 +233,6 @@ contract CompoundStaking is IERC20 {
         requiredBalance -= currentAmount;
         user.tokenAtLastUserAction = balanceOf(msg.sender);
         require(token.transfer(_to,currentAmount),"Compound: Not enough token to transfer");
+        emit Transfer(_to, address(0), currentAmount);
     }
 }
