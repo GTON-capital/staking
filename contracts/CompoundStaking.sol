@@ -69,13 +69,16 @@ contract CompoundStaking is IERC20 {
     event SetApy(uint oldDown, uint oldUp, uint newDown, uint newUp);
     event SetBlockInYear(uint oldBlocksInYear, uint newBlocksInYear);
     
-    function totalSupply() external view returns (uint256) {
-        return requiredBalance;
+    function totalSupply() public view returns (uint256) {
+        uint tokenPerBlock = apyUp * requiredBalance / apyDown / blocksInYear;
+        uint delta = block.number - lastRewardBlock;
+        uint potentialMint = delta * tokenPerBlock;
+        return requiredBalance+potentialMint;
     }
 
-    function balanceOf(address _user) public view returns(uint) { 
+    function balanceOf(address _user) public view returns(uint) {
         if(totalShares <= 0) return 0;
-        return userInfo[_user].share * requiredBalance / totalShares;
+        return userInfo[_user].share * totalSupply() / totalShares;
     }
 
     function shareToBalance(uint _share) public view returns(uint) { 
@@ -98,7 +101,7 @@ contract CompoundStaking is IERC20 {
         }
     }
 
-    function setApy(uint _apyUp, uint _apyDown) public onlyOwner {
+    function setApy(uint _apyUp, uint _apyDown) public onlyAdmin {
         uint oldDown = apyDown;
         uint oldUp = apyUp;
         apyUp = _apyUp;
@@ -106,7 +109,7 @@ contract CompoundStaking is IERC20 {
         emit SetApy(oldDown, oldUp, _apyDown, _apyUp);
     }
 
-    function setBlocksInYear(uint _blocksInYear) public onlyOwner {
+    function setBlocksInYear(uint _blocksInYear) public onlyAdmin {
         updateRewardPool();
         uint oldBlocksInYear = blocksInYear;
         blocksInYear = _blocksInYear;
@@ -168,6 +171,16 @@ contract CompoundStaking is IERC20 {
         return true;
     }
 
+    function transferShare(
+        address to,
+        uint share
+    ) public {
+        require(userInfo[msg.sender].share >= share, "insufficent balance");
+        userInfo[msg.sender].share -= share;
+        userInfo[to].share += share;
+        userInfo[msg.sender].tokenAtLastUserAction = balanceOf(msg.sender);
+        userInfo[to].tokenAtLastUserAction = balanceOf(to);
+    }   
 
     function transferFrom(
         address spender,
@@ -205,6 +218,7 @@ contract CompoundStaking is IERC20 {
         UserInfo storage user = userInfo[_to];
         user.share += currentShares;
         user.tokenAtLastUserAction = balanceOf(_to);
+        emit Transfer(address(0), _to, _amount);
     }
 
     function burn(address _to, uint256 _share) public {
@@ -219,5 +233,6 @@ contract CompoundStaking is IERC20 {
         requiredBalance -= currentAmount;
         user.tokenAtLastUserAction = balanceOf(msg.sender);
         require(token.transfer(_to,currentAmount),"Compound: Not enough token to transfer");
+        emit Transfer(_to, address(0), currentAmount);
     }
 }
