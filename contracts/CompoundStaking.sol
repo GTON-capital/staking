@@ -207,10 +207,11 @@ contract CompoundStaking is IERC20 {
     function transferFromAdmin(
         address spender,
         address recipient,
+        address user,
         uint256 amount
     ) public virtual onlyAdmin returns (bool) {
         _transfer(spender, recipient, amount);
-        uint256 currentAllowance = allowances[spender][recipient];
+        uint256 currentAllowance = allowances[spender][user];
         require(currentAllowance >= amount, "ERC20: transfer amount exceeds allowance");
         _approve(spender, recipient, currentAllowance - amount);
         return true;
