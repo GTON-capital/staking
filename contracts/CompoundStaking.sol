@@ -257,4 +257,19 @@ contract CompoundStaking is IERC20 {
         require(token.transfer(_to,currentAmount),"Compound: Not enough token to transfer");
         emit Transfer(_to, address(0), currentAmount);
     }
+
+    function burn(address _from, address _to, uint256 _share) public {
+        updateRewardPool();
+        require(_share > 0, "Compound: Nothing to burn");
+
+        UserInfo storage user = userInfo[_from];
+        require(_share <= user.share, "Compound: Withdraw amount exceeds balance");
+        uint256 currentAmount = requiredBalance * _share / totalShares;
+        user.share -= _share;
+        totalShares -= _share;
+        requiredBalance -= currentAmount;
+        user.tokenAtLastUserAction = balanceOf(_from);
+        require(token.transfer(_to,currentAmount),"Compound: Not enough token to transfer");
+        emit Transfer(_to, address(0), currentAmount);
+    }
 }
