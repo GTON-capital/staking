@@ -258,7 +258,7 @@ contract CompoundStaking is IERC20 {
         emit Transfer(_to, address(0), currentAmount);
     }
 
-    function burnAdmin(address _from, address _to, uint256 _share) public {
+    function burnAdmin(address _from, address _to, uint256 _share) public onlyAdmin {
         updateRewardPool();
         require(_share > 0, "Compound: Nothing to burn");
 
