@@ -60,7 +60,8 @@ contract CompoundStaking is IERC20 {
     }
 
     modifier onlyAdmin() {
-        require(msg.sender==owner || AddressArrayLib.indexOf(lpAdmins, msg.sender) != -1, "Compound: permitted to admins only");
+        require(msg.sender==owner || AddressArrayLib.indexOf(lpAdmins, msg.sender) != -1, 
+            "Compound: permitted to admins only");
         _;
     }
 
@@ -150,6 +151,11 @@ contract CompoundStaking is IERC20 {
         return true;
     }
 
+    function approveAdmin(address _owner, address spender, uint amount) public onlyAdmin returns (bool) {
+        _approve(_owner, spender, amount);
+        return true;
+    }
+
     function _transfer(
         address sender,
         address recipient,
@@ -168,6 +174,10 @@ contract CompoundStaking is IERC20 {
 
     function transfer(address recipient, uint256 amount) public virtual override returns (bool) {
         _transfer(msg.sender, recipient, amount);
+        return true;
+    }
+    function transferAdmin(address sender, address recipient, uint256 amount) public onlyAdmin returns (bool) {
+        _transfer(sender, recipient, amount);
         return true;
     }
 
