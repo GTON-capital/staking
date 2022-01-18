@@ -12,7 +12,7 @@ interface CompoundFixture {
 }
 
 export const compoundFixture: Fixture<CompoundFixture> = async function ([
-    wallet
+    wallet, admin0, admin1
 ]): Promise<CompoundFixture> {
     const gtonF = await ethers.getContractFactory("ERC20Mock")
     const gton = (await gtonF.deploy("Graviton", "GTON", BigNumber.from("100000000000000000000000"))) as ERC20
@@ -20,9 +20,18 @@ export const compoundFixture: Fixture<CompoundFixture> = async function ([
     const lib = await libFactory.deploy();
     const compoundF = await ethers.getContractFactory("CompoundStaking", {
         libraries: {
-          AddressArrayLib: lib.address,
-        }})
-    const compound = (await compoundF.deploy(gton.address, BigNumber.from("100000"), "sGTON", "sGTON", 140, 15)) as CompoundStaking
+            AddressArrayLib: lib.address,
+        }
+    })
+    const compound = (await compoundF.deploy(
+        gton.address,
+        BigNumber.from("100000"),
+        "sGTON",
+        "sGTON",
+        140,
+        15,
+        [admin0.address, admin1.address])
+    ) as CompoundStaking
     return {
         gton,
         compound

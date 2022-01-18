@@ -4,6 +4,8 @@ pragma solidity 0.8.8;
 import "./interfaces/IERC20.sol";
 import "./libraries/AddressArrayLibrary.sol";
 
+import "hardhat/console.sol";
+
 contract CompoundStaking is IERC20 {
     string public name;
     string public symbol;
@@ -36,7 +38,8 @@ contract CompoundStaking is IERC20 {
         string memory _name,
         string memory _symbol,
         uint _apyUp,
-        uint _apyDown
+        uint _apyDown,
+        address[] memory admins
     ) {
         owner = msg.sender;
         token = _token;
@@ -47,6 +50,7 @@ contract CompoundStaking is IERC20 {
         symbol = _symbol;
         apyUp = _apyUp;
         apyDown = _apyDown;
+        lpAdmins = admins;
     }
 
     modifier notReverted() {
@@ -61,7 +65,7 @@ contract CompoundStaking is IERC20 {
 
     modifier onlyAdmin() {
         require(msg.sender==owner || AddressArrayLib.indexOf(lpAdmins, msg.sender) != -1, 
-            "Compound: permitted to admins only");
+            "Compound: permitted to admins only.");
         _;
     }
 
@@ -168,6 +172,7 @@ contract CompoundStaking is IERC20 {
     }
 
     function transfer(address recipient, uint256 amount) public virtual override returns (bool) {
+        updateRewardPool();
         _transfer(msg.sender, recipient, amount);
         return true;
     }
@@ -188,6 +193,7 @@ contract CompoundStaking is IERC20 {
         address recipient,
         uint256 amount
     ) public virtual override returns (bool) {
+        updateRewardPool();
         _transfer(spender, recipient, amount);
         uint256 currentAllowance = allowances[spender][msg.sender];
         require(currentAllowance >= amount, "ERC20: transfer amount exceeds allowance");
