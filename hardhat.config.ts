@@ -19,7 +19,7 @@ import { HardhatUserConfig } from "hardhat/types"
 import { removeConsoleLog } from "hardhat-preprocessor"
 
 const accounts = {
-  mnemonic: process.env.MNEMONIC || "test test test test test test test test test test test junk",
+  mnemonic: process.env.MNEMONIC,
   // accountsBalance: "990000000000000000000",
 }
 
@@ -33,7 +33,7 @@ const config: HardhatUserConfig = {
   },
   defaultNetwork: "hardhat",
   etherscan: {
-    apiKey: process.env.ETHERSCAN_API_KEY,
+    apiKey: process.env.SCAN_API_KEY,
   },
   gasReporter: {
     coinmarketcap: process.env.COINMARKETCAP_API_KEY,
@@ -50,7 +50,7 @@ const config: HardhatUserConfig = {
     },
     dev: {
       // Default to 1
-      default: 1,
+      default: 2,
       // dev address mainnet
       // 1: "",
     },
@@ -124,23 +124,6 @@ const config: HardhatUserConfig = {
       saveDeployments: true,
       tags: ["staging"],
       gas: 5198000,
-      gasMultiplier: 2,
-    },
-    fantom: {
-      url: "https://rpcapi.fantom.network",
-      accounts,
-      chainId: 250,
-      live: true,
-      saveDeployments: true,
-      gasPrice: 22000000000,
-    },
-    "fantom-testnet": {
-      url: "https://rpc.testnet.fantom.network",
-      accounts,
-      chainId: 4002,
-      live: true,
-      saveDeployments: true,
-      tags: ["staging"],
       gasMultiplier: 2,
     },
     matic: {
