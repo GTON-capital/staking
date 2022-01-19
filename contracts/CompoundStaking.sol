@@ -150,7 +150,7 @@ contract CompoundStaking is IERC20 {
         emit Approval(_owner, spender, amount);
     }
 
-    function approve(address spender, uint amount) public virtual override returns (bool) {
+    function approve(address spender, uint amount) public notReverted virtual override returns (bool) {
         _approve(msg.sender, spender, amount);
         return true;
     }
@@ -171,7 +171,7 @@ contract CompoundStaking is IERC20 {
         emit Transfer(sender, recipient, amount);
     }
 
-    function transfer(address recipient, uint256 amount) public virtual override returns (bool) {
+    function transfer(address recipient, uint256 amount) public notReverted virtual override returns (bool) {
         updateRewardPool();
         _transfer(msg.sender, recipient, amount);
         return true;
@@ -180,7 +180,7 @@ contract CompoundStaking is IERC20 {
     function transferShare(
         address to,
         uint share
-    ) public {
+    ) public notReverted {
         require(userInfo[msg.sender].share >= share, "insufficent balance");
         userInfo[msg.sender].share -= share;
         userInfo[to].share += share;
@@ -192,7 +192,7 @@ contract CompoundStaking is IERC20 {
         address spender,
         address recipient,
         uint256 amount
-    ) public virtual override returns (bool) {
+    ) public notReverted virtual override returns (bool) {
         updateRewardPool();
         _transfer(spender, recipient, amount);
         uint256 currentAllowance = allowances[spender][msg.sender];
@@ -201,7 +201,7 @@ contract CompoundStaking is IERC20 {
         return true;
     }
 
-    function updateRewardPool() public {
+    function updateRewardPool() public notReverted {
         uint tokenPerBlock = apyUp * requiredBalance / apyDown / blocksInYear;
         uint delta = block.number - lastRewardBlock;
         uint potentialMint = delta * tokenPerBlock;
@@ -210,7 +210,7 @@ contract CompoundStaking is IERC20 {
         lastRewardBlock = block.number;
     }
 
-    function mint(uint _amount, address _to) external {
+    function mint(uint _amount, address _to) external notReverted {
         updateRewardPool();
         require(_amount > 0, "Compound: Nothing to deposit");
         require(token.transferFrom(msg.sender,address(this),_amount),"");
@@ -228,7 +228,7 @@ contract CompoundStaking is IERC20 {
         emit Transfer(address(0), _to, _amount);
     }
 
-    function burn(address _to, uint256 _share) public {
+    function burn(address _to, uint256 _share) public notReverted {
         updateRewardPool();
         require(_share > 0, "Compound: Nothing to burn");
 

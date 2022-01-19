@@ -9,6 +9,7 @@ import { ERC20 } from "../../types/ERC20"
 interface CompoundFixture {
     gton: ERC20
     compound: CompoundStaking
+    lib: Contract
 }
 
 export const compoundFixture: Fixture<CompoundFixture> = async function ([
@@ -34,6 +35,7 @@ export const compoundFixture: Fixture<CompoundFixture> = async function ([
     ) as CompoundStaking
     return {
         gton,
+        lib,
         compound
     }
 }

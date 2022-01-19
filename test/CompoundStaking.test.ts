@@ -1,6 +1,6 @@
-import { waffle } from "hardhat"
+import { waffle, ethers } from "hardhat"
 import { expect } from "chai"
-import { BigNumber, BigNumberish, constants } from 'ethers'
+import { BigNumber, BigNumberish, constants, Contract, Wallet } from 'ethers'
 const {AddressZero} = constants
 import { compoundFixture } from "./utilities/fixtures"
 import { mineBlocks, expandTo18Decimals } from "./utilities/index"
@@ -8,6 +8,7 @@ import { mineBlocks, expandTo18Decimals } from "./utilities/index"
 import { ERC20 } from "../types/ERC20"
 import { CompoundStaking } from "../types/CompoundStaking"
 import { mineBlock } from "../graviton-periphery-evm/test/shared/utilities"
+import exp from "constants"
 
 describe("Compound", () => {
     const [wallet, admin0, admin1, alice, bob, denice, fedor, other] = waffle.provider.getWallets()
@@ -20,10 +21,12 @@ describe("Compound", () => {
 
     let gton: ERC20
     let compound: CompoundStaking
+    let lib: Contract
     beforeEach("deploy test contracts", async () => {
         ; ({
             gton,
-            compound
+            compound,
+            lib
         } = await loadFixture(compoundFixture))
 
     })
@@ -126,19 +129,25 @@ describe("Compound", () => {
             period: 100,
             apyUp: BigNumber.from("120000000"),
             apyDown: BigNumber.from("1000000000"),
-            blocksInYear: BigNumber.from("1120"),
+            amount: expandTo18Decimals(150),
+            user: bob,
+            blocksInYear: BigNumber.from("1012"),
         },
         {
             period: 1000,
             apyUp: BigNumber.from("7500000"),
             apyDown: BigNumber.from("10000000"),
-            blocksInYear: BigNumber.from("9002"),
+            amount: expandTo18Decimals(897),
+            user: alice,
+            blocksInYear: BigNumber.from("9214"),
         },
         {
             period: 5000,
             apyUp: BigNumber.from("9000"),
             apyDown: BigNumber.from("100000"),
-            blocksInYear: BigNumber.from("5200"),
+            amount: expandTo18Decimals(54000),
+            user: fedor,
+            blocksInYear: BigNumber.from("15266"),
         },
     ]
 
@@ -298,27 +307,75 @@ describe("Compound", () => {
     })
     
     context("Apy checking", function () {
+        const decimals = BigNumber.from("10000000")
 
         it("After year APY of each user should be correct and APY of all sc the same", async () => {
-            const amount = expandTo18Decimals(150)
             for(const i of updRewardData) {
+                const apy = i.apyUp.mul(decimals).div(i.apyDown)
+                await compound.setApy(i.apyUp, i.apyDown)
                 await compound.setBlocksInYear(i.blocksInYear)
-                const apy = i.apyUp.div(i.apyDown)
-                const balanceAfterYear = amount.add(amount.mul(apy))
-                await gton.approve(compound.address, amount);
-                await compound.mint(amount, wallet.address)
-                mineBlocks(waffle.provider, i.blocksInYear.toNumber())
-                console.log(await (await compound.balanceOf(wallet.address)).toString());
+                const balanceAfterYear = i.amount.add(i.amount.mul(apy).div(decimals))
+                await gton.approve(compound.address, i.amount);
+                await compound.mint(i.amount, i.user.address)
                 
-                expect(await compound.balanceOf(wallet.address)).to.eq(balanceAfterYear)
-                
+                await mineBlocks(waffle.provider, i.blocksInYear.toNumber())
+                expect(await compound.balanceOf(i.user.address)).to.be.closeTo(balanceAfterYear, 3000) // 3000 in wei
             }
         })
-
-        it("After n blocks APY of all sc should be correct for these n blocks, as example if for blocks that are equivalent to 1/4 of a year amount of new tokens in the contract should match for each user and all sc", async () => {
+        const periods = [2]
+        it("After n blocks APY of all sc should be correct for these n blocks", async () => {
+            for(const period of periods) {
+                for(const i of updRewardData) {
+                    const apy = i.apyUp.mul(decimals).div(i.apyDown)
+                    await compound.setApy(i.apyUp, i.apyDown)
+                    await compound.setBlocksInYear(i.blocksInYear)
+                    const balanceAfterYear = i.amount.add(i.amount.mul(apy).div(decimals).div(period))
+                    await gton.approve(compound.address, i.amount);
+                    await compound.mint(i.amount, i.user.address)
+                    
+                    await mineBlocks(waffle.provider, i.blocksInYear.div(period).toNumber())
+                    // 3000 in wei for less than 5000 gtons and about 5000 in wei for stake more than 50 000 gton
+                    // it stated with 10 000 to level out the error of number when working with quarter the year (outdated)
+                    expect(await compound.balanceOf(i.user.address)).to.be.closeTo(balanceAfterYear, 10000) 
+                    await compound.connect(i.user).transferShare(wallet.address, (await compound.userInfo(i.user.address)).share) // clear the users balance
+                }
+            }
 
         })
-        // Add user dynamic tests (for each user we should emulate several mint and burn actions and calculate APY as in the previous check, compared to real one)
+
+        async function checkUserApy(user: Wallet, blockAmount: number, stakedAmount: BigNumber) {
+            const apyUp = await compound.apyUp()
+            const apyDown = await compound.apyDown()
+            const biy = await compound.blocksInYear()
+
+            const apy = apyUp.mul(decimals).div(apyDown)
+            const earned = stakedAmount.mul(apy).mul(blockAmount).div(decimals).div(biy)
+            const balanceAfter = stakedAmount.add(earned)
+
+            await mineBlocks(waffle.provider, blockAmount)
+            // the approximate amount about 1 gton
+            expect(await compound.balanceOf(user.address)).to.be.closeTo(balanceAfter, expandTo18Decimals(1).toNumber()) 
+        }
+
+        it("for each user we should emulate several mint and burn actions and calculate APY as in the previous check, compared to real one", async () => {
+            await fillUpCompound();
+            const fedorAmount = expandTo18Decimals(180)
+            await gton.approve(compound.address, fedorAmount)
+            await compound.mint(fedorAmount, fedor.address)
+            await checkUserApy(fedor, 150, fedorAmount)
+
+            await compound.setApy("1500", "10000")
+            const fedorShare = (await compound.userInfo(fedor.address)).share
+            const balance = await compound.shareToBalance(fedorShare)
+            await compound.connect(fedor).transfer(admin0.address, balance)
+            await checkUserApy(admin0, 500, fedorShare)
+
+        })
+
+        it("if no one farms there should be 0 income at any block after somebody got in, his APY should suite rules", async () => {
+
+
+        })
         // Add zero tests (if no one farms there should be 0 income at any block after somebody got in, his APY should suite rules)
         // Add checks of the APY when it changes in case of users mint and burn actions (for users and contract in total)
         // Add checks of the block time parameters in the contract and emulate that it has been changed for some time, the APY should be constant
