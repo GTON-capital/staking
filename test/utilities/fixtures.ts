@@ -19,11 +19,7 @@ export const compoundFixture: Fixture<CompoundFixture> = async function ([
     const gton = (await gtonF.deploy("Graviton", "GTON", BigNumber.from("100000000000000000000000"))) as ERC20
     const libFactory = await ethers.getContractFactory("AddressArrayLib")
     const lib = await libFactory.deploy();
-    const compoundF = await ethers.getContractFactory("CompoundStaking", {
-        libraries: {
-            AddressArrayLib: lib.address,
-        }
-    })
+    const compoundF = await ethers.getContractFactory("CompoundStaking")
     const compound = (await compoundF.deploy(
         gton.address,
         BigNumber.from("100000"),

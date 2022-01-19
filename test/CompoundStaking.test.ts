@@ -1,14 +1,12 @@
 import { waffle, ethers } from "hardhat"
 import { expect } from "chai"
 import { BigNumber, BigNumberish, constants, Contract, Wallet } from 'ethers'
-const {AddressZero} = constants
+const { AddressZero } = constants
 import { compoundFixture } from "./utilities/fixtures"
 import { mineBlocks, expandTo18Decimals } from "./utilities/index"
 
 import { ERC20 } from "../types/ERC20"
 import { CompoundStaking } from "../types/CompoundStaking"
-import { mineBlock } from "../graviton-periphery-evm/test/shared/utilities"
-import exp from "constants"
 
 describe("Compound", () => {
     const [wallet, admin0, admin1, alice, bob, denice, fedor, other] = waffle.provider.getWallets()
@@ -99,14 +97,14 @@ describe("Compound", () => {
 
     it("set apys", async () => {
         // random numbers
-        const apyUp = BigNumber.from("140") 
+        const apyUp = BigNumber.from("140")
         const apyDown = BigNumber.from("13")
         await expect(compound.connect(other).setApy(apyUp, apyDown)).to.be.revertedWith('Compound: permitted to admins only.')
         await compound.setApy(apyUp, apyDown)
         expect(await compound.apyUp()).to.eq(apyUp)
         expect(await compound.apyDown()).to.eq(apyDown)
 
-        const apyUpAdmin = BigNumber.from("5977") 
+        const apyUpAdmin = BigNumber.from("5977")
         const apyDownAdmin = BigNumber.from("854")
         await compound.connect(admin0).setApy(apyUpAdmin, apyDownAdmin)
         expect(await compound.apyUp()).to.eq(apyUpAdmin)
@@ -165,7 +163,7 @@ describe("Compound", () => {
         const lrb = await compound.lastRewardBlock();
         const potential = await compound.potentiallyMinted();
         const required = await compound.requiredBalance();
-        await mineBlocks(waffle.provider, period-2) // to count upcoming txn
+        await mineBlocks(waffle.provider, period - 2) // to count upcoming txn
         const tpb = await getTokenPerBlock()
         const minted = tpb.mul(period)
         await compound.updateRewardPool();
@@ -202,12 +200,12 @@ describe("Compound", () => {
         expect(await compound.requiredBalance()).to.eq(amount.add(tpb.mul(4))) // by the amount of sent txn in rows (98-101)
 
         await fillUpCompound();
-        
+
         const amount2 = expandTo18Decimals(150)
         await gton.transfer(other.address, amount2)
         await gton.connect(other).approve(compound.address, amount2);
         const requiredAfter = await requiredBalanceAfterUpdateReward(3) // transfer + approve + upcoming mint
-        const totalShares = await compound.totalShares() 
+        const totalShares = await compound.totalShares()
         const currentShare = amount2.mul(totalShares).div(requiredAfter)
         await compound.connect(other).mint(amount2, other.address)
         const res2 = await compound.userInfo(other.address)
@@ -216,9 +214,9 @@ describe("Compound", () => {
         expect(await compound.totalShares()).to.eq(totalShares.add(currentShare))
         expect(await compound.requiredBalance()).to.eq(requiredAfter.add(amount2))
     })
-    
+
     it("burn", async () => {
-        await fillUpCompound(); 
+        await fillUpCompound();
 
         const amount = expandTo18Decimals(115)
         const period = 50
@@ -228,11 +226,11 @@ describe("Compound", () => {
         await mineBlocks(waffle.provider, period)
         await expect(compound.burn(wallet.address, 0)).to.be.revertedWith("Compound: Nothing to burn")
         const share = (await compound.userInfo(wallet.address)).share
-        
+
         await expect(compound.burn(wallet.address, share.add(expandTo18Decimals(1000)))).to.be.revertedWith("Compound: Withdraw amount exceeds balance")
         await expect(compound.burn(wallet.address, share)).to.be.revertedWith("ERC20: transfer amount exceeds balance")
         await gton.transfer(compound.address, await gton.balanceOf(wallet.address));
-        
+
         const requiredBalance = await compound.requiredBalance()
         const totalShares = await compound.totalShares()
         const tpb = await getTokenPerBlock();
@@ -241,10 +239,10 @@ describe("Compound", () => {
         await compound.burn(wallet.address, share)
         const updRequiredBalance = requiredBalance.add(tpb.mul(55)) // hasn't updated since mineBlocs call so it's 50 + 5
         const currentAmount = updRequiredBalance.mul(share).div(totalShares)
-    
+
         const user = await compound.userInfo(wallet.address)
         expect(user.share).to.eq(0)
-        
+
         expect(await compound.requiredBalance()).to.eq(updRequiredBalance.sub(currentAmount))
         expect(await compound.totalShares()).to.eq(totalShares.sub(share))
         expect(await gton.balanceOf(wallet.address)).to.eq(balanceBefore.add(currentAmount))
@@ -294,7 +292,7 @@ describe("Compound", () => {
         await compound.approve(bob.address, balance)
         await compound.connect(bob).transferFrom(wallet.address, bob.address, balance)
 
-        expect(await compound.allowance(wallet.address,bob.address)).to.eq(0)
+        expect(await compound.allowance(wallet.address, bob.address)).to.eq(0)
         const res = await compound.userInfo(bob.address)
         const resWallet = await compound.userInfo(wallet.address)
         expect(res.share).to.eq(share)
@@ -305,38 +303,58 @@ describe("Compound", () => {
         // expect(await compound.balanceOf(bob.address)).to.eq(share)
         // expect(await compound.balanceOf(wallet.address)).to.eq(shareBefore.sub(share))
     })
-    
+
+    it("balanceToShare", async () => {
+        const amount = expandTo18Decimals(789)
+        await gton.approve(compound.address, amount);
+        await compound.mint(amount, wallet.address)
+
+        const user = await compound.userInfo(wallet.address)
+
+        expect(await compound.balanceToShare(await compound.balanceOf(wallet.address))).to.eq(user.share)
+
+        await mineBlocks(waffle.provider, 20)
+
+        expect(await compound.balanceToShare(await compound.balanceOf(wallet.address))).to.eq(user.share)
+    })
+
+    it("shareToBalance", async () => {
+        const amount = BigNumber.from("1012401999999")
+        await gton.approve(compound.address, amount);
+        await compound.mint(amount, wallet.address)
+    })
+
     context("Apy checking", function () {
         const decimals = BigNumber.from("10000000")
 
         it("After year APY of each user should be correct and APY of all sc the same", async () => {
-            for(const i of updRewardData) {
+            for (const i of updRewardData) {
                 const apy = i.apyUp.mul(decimals).div(i.apyDown)
                 await compound.setApy(i.apyUp, i.apyDown)
                 await compound.setBlocksInYear(i.blocksInYear)
                 const balanceAfterYear = i.amount.add(i.amount.mul(apy).div(decimals))
                 await gton.approve(compound.address, i.amount);
                 await compound.mint(i.amount, i.user.address)
-                
+
                 await mineBlocks(waffle.provider, i.blocksInYear.toNumber())
                 expect(await compound.balanceOf(i.user.address)).to.be.closeTo(balanceAfterYear, 3000) // 3000 in wei
             }
         })
         const periods = [2]
         it("After n blocks APY of all sc should be correct for these n blocks", async () => {
-            for(const period of periods) {
-                for(const i of updRewardData) {
+            for (const period of periods) {
+                for (const i of updRewardData) {
                     const apy = i.apyUp.mul(decimals).div(i.apyDown)
                     await compound.setApy(i.apyUp, i.apyDown)
                     await compound.setBlocksInYear(i.blocksInYear)
                     const balanceAfterYear = i.amount.add(i.amount.mul(apy).div(decimals).div(period))
                     await gton.approve(compound.address, i.amount);
                     await compound.mint(i.amount, i.user.address)
-                    
+
                     await mineBlocks(waffle.provider, i.blocksInYear.div(period).toNumber())
                     // 3000 in wei for less than 5000 gtons and about 5000 in wei for stake more than 50 000 gton
                     // it stated with 10 000 to level out the error of number when working with quarter the year (outdated)
-                    expect(await compound.balanceOf(i.user.address)).to.be.closeTo(balanceAfterYear, 10000) 
+                    expect(await compound.balanceOf(i.user.address)).to.be.closeTo(balanceAfterYear, 10000)
                     await compound.connect(i.user).transferShare(wallet.address, (await compound.userInfo(i.user.address)).share) // clear the users balance
                 }
             }
@@ -354,10 +372,10 @@ describe("Compound", () => {
 
             await mineBlocks(waffle.provider, blockAmount)
             // the approximate amount about 1 gton
-            expect(await compound.balanceOf(user.address)).to.be.closeTo(balanceAfter, expandTo18Decimals(1).toNumber()) 
+            expect(await compound.balanceOf(user.address)).to.be.closeTo(balanceAfter, 1000000000000)
         }
 
-        it("for each user we should emulate several mint and burn actions and calculate APY as in the previous check, compared to real one", async () => {
+        it("for each user we should emulate several mint and burn actions and calculate APY", async () => {
             await fillUpCompound();
             const fedorAmount = expandTo18Decimals(180)
             await gton.approve(compound.address, fedorAmount)
@@ -373,12 +391,19 @@ describe("Compound", () => {
         })
 
         it("if no one farms there should be 0 income at any block after somebody got in, his APY should suite rules", async () => {
+            await mineBlocks(waffle.provider, 100);
+            expect(await compound.potentiallyMinted()).to.eq(0)
+            expect(await compound.requiredBalance()).to.eq(0)
+            expect(await compound.balanceOf(admin1.address)).to.eq(0)
 
-
+            const amount = expandTo18Decimals(180)
+            await gton.approve(compound.address, amount)
+            await compound.mint(amount, admin1.address)
+            await checkUserApy(admin1, 800, amount)
         })
-        // Add zero tests (if no one farms there should be 0 income at any block after somebody got in, his APY should suite rules)
         // Add checks of the APY when it changes in case of users mint and burn actions (for users and contract in total)
         // Add checks of the block time parameters in the contract and emulate that it has been changed for some time, the APY should be constant
     })
+
 
 })

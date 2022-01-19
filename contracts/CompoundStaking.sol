@@ -107,6 +107,7 @@ contract CompoundStaking is IERC20 {
     }
 
     function setApy(uint _apyUp, uint _apyDown) public onlyAdmin {
+        updateRewardPool();
         uint oldDown = apyDown;
         uint oldUp = apyUp;
         apyUp = _apyUp;
