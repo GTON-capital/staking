@@ -83,11 +83,11 @@ contract CompoundStaking is IERC20 {
     }
 
     function shareToBalance(uint _share) public view returns(uint) { 
-        return _share * requiredBalance / totalShares;
+        return _share * totalSupply() / totalShares;
     }
 
     function balanceToShare(uint _balance) public view returns(uint) { 
-        return _balance * totalShares / requiredBalance;
+        return _balance * totalShares / totalSupply();
     }
 
     function setAdmins(address[] memory admins) public onlyOwner {
