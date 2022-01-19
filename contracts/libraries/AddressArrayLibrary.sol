@@ -7,7 +7,7 @@ library AddressArrayLib {
     function removeItem(
         address[] storage array,
         address a
-    ) public {
+    ) internal {
         int i = indexOf(array, a);
         require(i != -1, "ARRAY_LIB: Element doesn't exist");
         remove(array, uint(i));
@@ -16,7 +16,7 @@ library AddressArrayLib {
     function remove(      
         address[] storage array,
         uint index
-    ) public {
+    ) internal {
         require(index <= array.length, "ARRAY_LIB: Index does not exist");
         array[index] = array[array.length-1];
         array.pop();
@@ -27,7 +27,7 @@ library AddressArrayLib {
     function indexOf(
         address[] storage array,
         address a
-    ) public view returns (int) {
+    ) internal view returns (int) {
         if (array.length == 0) return int(-1); // we want to continue txn process
         for(uint i=0; i<array.length; i++) {
             if (array[i] == a) {
