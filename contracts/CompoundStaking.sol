@@ -124,10 +124,11 @@ contract CompoundStaking is IERC20 {
 
     function toggleRevert() public onlyOwner {
         revertFlag = !revertFlag;
+        emit RevertFlag(revertFlag);
     }
 
     function withdrawToken(IERC20 _token, address _to, uint _amount) public onlyOwner {
-            require(_token.transfer(_to,_amount));
+        require(_token.transfer(_to,_amount));
     }
 
     function transferOwnership(address _owner) public onlyOwner {
@@ -165,6 +166,7 @@ contract CompoundStaking is IERC20 {
         require(recipient != address(0), "ERC20: transfer to the zero address");
 
         uint transferShare = balanceToShare(amount);
+        console.log(transferShare);
         require(userInfo[sender].share >= transferShare, "ERC20: transfer amount exceeds balance");
         userInfo[sender].share -= transferShare;
         userInfo[recipient].share += transferShare;
