@@ -279,10 +279,10 @@ describe("Compound", () => {
         await compound.mint(amount, wallet.address)
         await mineBlocks(waffle.provider, 10)
         const balance = await compound.balanceOf(wallet.address)
-        await expect(compound.transfer(other.address, balance.add(expandTo18Decimals(100)))).to.be.revertedWith("Compound: reverted flag on.")
+        await expect(compound.transfer(other.address, balance.add(expandTo18Decimals(100)))).to.be.revertedWith("ERC20: transfer amount exceeds balance")
 
         await compound.toggleRevert();
-        await expect(compound.transfer(other.address, balance)).to.be.revertedWith("ERC20: transfer amount exceeds balance")
+        await expect(compound.transfer(other.address, balance)).to.be.revertedWith("Compound: reverted flag on.")
         await compound.toggleRevert();
 
 
