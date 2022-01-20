@@ -180,6 +180,10 @@ describe("Compound", () => {
     }
 
     it("update reward pool", async () => {
+        await compound.toggleRevert();
+        await expect(compound.updateRewardPool()).to.be.revertedWith("Compound: reverted flag on.")
+        await compound.toggleRevert();
+
         for (const item of updRewardData) {
             await testUpdateReward(item)
             await fillUpCompound();
@@ -191,6 +195,11 @@ describe("Compound", () => {
         const amount = expandTo18Decimals(256)
         await expect(compound.mint(0, wallet.address)).to.be.revertedWith("Compound: Nothing to deposit")
         await expect(compound.mint(amount, wallet.address)).to.be.revertedWith("ERC20: transfer amount exceeds allowance")
+
+        await compound.toggleRevert();
+        await expect(compound.mint(amount, wallet.address)).to.be.revertedWith("Compound: reverted flag on.")
+        await compound.toggleRevert();
+
         await gton.approve(compound.address, amount);
         await compound.mint(amount, wallet.address)
         // 0 total shares
@@ -229,6 +238,11 @@ describe("Compound", () => {
 
         await expect(compound.burn(wallet.address, share.add(expandTo18Decimals(1000)))).to.be.revertedWith("Compound: Withdraw amount exceeds balance")
         await expect(compound.burn(wallet.address, share)).to.be.revertedWith("ERC20: transfer amount exceeds balance")
+
+        await compound.toggleRevert();
+        await expect(compound.burn(wallet.address, share)).to.be.revertedWith("Compound: reverted flag on.")
+        await compound.toggleRevert();
+
         await gton.transfer(compound.address, await gton.balanceOf(wallet.address));
 
         const requiredBalance = await compound.requiredBalance()
@@ -237,7 +251,7 @@ describe("Compound", () => {
         const balanceBefore = await gton.balanceOf(wallet.address)
 
         await compound.burn(wallet.address, share)
-        const updRequiredBalance = requiredBalance.add(tpb.mul(55)) // hasn't updated since mineBlocs call so it's 50 + 5
+        const updRequiredBalance = requiredBalance.add(tpb.mul(58)) // hasn't updated since mineBlocs call so it's 50 + 5 + 3 toggle and failed txn
         const currentAmount = updRequiredBalance.mul(share).div(totalShares)
 
         const user = await compound.userInfo(wallet.address)
@@ -265,17 +279,19 @@ describe("Compound", () => {
         await compound.mint(amount, wallet.address)
         await mineBlocks(waffle.provider, 10)
         const balance = await compound.balanceOf(wallet.address)
-        
+        await expect(compound.transfer(other.address, balance.add(expandTo18Decimals(100)))).to.be.revertedWith("Compound: reverted flag on.")
+
+        await compound.toggleRevert();
+        await expect(compound.transfer(other.address, balance)).to.be.revertedWith("ERC20: transfer amount exceeds balance")
+        await compound.toggleRevert();
+
+
         const share = balanceToShare(balance, await futureTotalSupply(1), await compound.totalShares())
-        console.log("Share = "+share.toString());
-        
         const shareBefore = (await compound.userInfo(wallet.address)).share
 
         await compound.transfer(other.address, balance)
         const res = await compound.userInfo(other.address)
         const resWallet = await compound.userInfo(wallet.address)
-        console.log(res.share.toString());
-        console.log(resWallet.share.toString());
         
         expect(resWallet.share).to.eq(shareBefore.sub(share))
         expect(res.share).to.eq(share) // tpb for transfer option
@@ -285,6 +301,11 @@ describe("Compound", () => {
         const amount = BigNumber.from("10012412401248")
         const secondAmount = BigNumber.from("1000000")
         expect(await compound.allowance(wallet.address, bob.address)).to.eq(0)
+
+        await compound.toggleRevert();
+        await expect(compound.approve(alice.address, amount)).to.be.revertedWith("Compound: reverted flag on.")
+        await compound.toggleRevert();
+
         // await expect(compound.approve(wallet.address, 0)).to.be.revertedWith("ERC20: approve to the zero address")
         await compound.approve(alice.address, amount)
         expect(await compound.allowance(wallet.address, alice.address)).to.eq(amount)
@@ -300,6 +321,11 @@ describe("Compound", () => {
 
         await mineBlocks(waffle.provider, 10)
         await expect(compound.connect(bob).transferFrom(wallet.address, bob.address, 15)).to.be.revertedWith("ERC20: transfer amount exceeds allowance")
+        
+        await compound.toggleRevert();
+        await expect(compound.transferFrom(wallet.address, bob.address, 15)).to.be.revertedWith("Compound: reverted flag on.")
+        await compound.toggleRevert();
+        
         const balance = await compound.balanceOf(wallet.address)
         // upcoming approve and transfer from blocks
         const share = balanceToShare(balance, await futureTotalSupply(2), await compound.totalShares())
@@ -392,11 +418,12 @@ describe("Compound", () => {
 
             const apy = apyUp.mul(decimals).div(apyDown)
             const earned = stakedAmount.mul(apy).mul(blockAmount).div(decimals).div(biy)
+            const balanceBefore = (await compound.balanceOf(user.address)).sub(stakedAmount)
             const balanceAfter = stakedAmount.add(earned)
 
             await mineBlocks(waffle.provider, blockAmount)
             // the approximate amount about 1 gton
-            expect(await compound.balanceOf(user.address)).to.be.closeTo(balanceAfter, 1000000000000)
+            expect(await compound.balanceOf(user.address)).to.be.closeTo(balanceAfter.add(balanceBefore), 1000000000000000)
         }
 
         it("for each user we should emulate several mint and burn actions and calculate APY", async () => {
@@ -406,18 +433,19 @@ describe("Compound", () => {
             await compound.mint(fedorAmount, fedor.address)
             await checkUserApy(fedor, 150, fedorAmount)
 
-            await compound.setApy("1500", "10000") // balance update here
+            await compound.setApy("150000", "1000000") // balance update here
             const balance = await compound.balanceOf(fedor.address)
             const share = balanceToShare(balance, await futureTotalSupply(1), await compound.totalShares())
-            console.log(share.toString());
             
             await compound.connect(fedor).transfer(admin0.address, balance)
-            console.log("s"+await (await compound.userInfo(admin0.address)).share.toString());
-            console.log("s"+await (await compound.userInfo(fedor.address)).share.toString());
-            console.log("b"+await (await compound.balanceOf(admin0.address)).toString());
-            console.log("b"+await (await compound.balanceOf(fedor.address)).toString());
-            
-            // await checkUserApy(admin0, 100, share)
+            await checkUserApy(admin0, 100, share)
+
+            // await compound.setApy("670000", "1000000") // balance update here
+            // const aliceBalance = await compound.balanceOf(alice.address)   
+            // const aliceShare = balanceToShare(aliceBalance, await futureTotalSupply(1), await compound.totalShares())
+            // await gton.approve(compound.address, expandTo18Decimals(110))
+            // await compound.mint(expandTo18Decimals(110), alice.address)  
+            // await checkUserApy(alice, 100, aliceShare)
 
         })
 
