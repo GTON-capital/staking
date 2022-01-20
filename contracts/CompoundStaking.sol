@@ -4,8 +4,6 @@ pragma solidity 0.8.8;
 import "./interfaces/IERC20.sol";
 import "./libraries/AddressArrayLibrary.sol";
 
-import "hardhat/console.sol";
-
 contract CompoundStaking is IERC20 {
     string public name;
     string public symbol;
@@ -166,7 +164,6 @@ contract CompoundStaking is IERC20 {
         require(recipient != address(0), "ERC20: transfer to the zero address");
 
         uint transferShare = balanceToShare(amount);
-        console.log(transferShare);
         require(userInfo[sender].share >= transferShare, "ERC20: transfer amount exceeds balance");
         userInfo[sender].share -= transferShare;
         userInfo[recipient].share += transferShare;
