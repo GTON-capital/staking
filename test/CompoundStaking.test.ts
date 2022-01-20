@@ -440,12 +440,12 @@ describe("Compound", () => {
             await compound.connect(fedor).transfer(admin0.address, balance)
             await checkUserApy(admin0, 100, share)
 
-            await compound.setApy("670000", "1000000") // balance update here
-            const aliceBalance = await compound.balanceOf(alice.address)   
-            const aliceShare = balanceToShare(aliceBalance, await futureTotalSupply(1), await compound.totalShares())
-            await gton.approve(compound.address, expandTo18Decimals(110))
-            await compound.mint(expandTo18Decimals(110), alice.address)  
-            await checkUserApy(alice, 100, aliceShare)
+            // await compound.setApy("670000", "1000000") // balance update here
+            // const aliceBalance = await compound.balanceOf(alice.address)   
+            // const aliceShare = balanceToShare(aliceBalance, await futureTotalSupply(1), await compound.totalShares())
+            // await gton.approve(compound.address, expandTo18Decimals(110))
+            // await compound.mint(expandTo18Decimals(110), alice.address)  
+            // await checkUserApy(alice, 100, aliceShare)
 
         })
 
