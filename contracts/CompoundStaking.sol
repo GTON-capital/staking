@@ -4,8 +4,6 @@ pragma solidity 0.8.8;
 import "./interfaces/IERC20.sol";
 import "./libraries/AddressArrayLibrary.sol";
 
-//import "hardhat/console.sol";
-
 contract CompoundStaking is IERC20 {
     string public name;
     string public symbol;
