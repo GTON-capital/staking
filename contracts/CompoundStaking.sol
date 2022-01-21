@@ -124,10 +124,11 @@ contract CompoundStaking is IERC20 {
 
     function toggleRevert() public onlyOwner {
         revertFlag = !revertFlag;
+        emit RevertFlag(revertFlag);
     }
 
     function withdrawToken(IERC20 _token, address _to, uint _amount) public onlyOwner {
-            require(_token.transfer(_to,_amount));
+        require(_token.transfer(_to,_amount));
     }
 
     function transferOwnership(address _owner) public onlyOwner {
