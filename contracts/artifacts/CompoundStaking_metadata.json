@@ -36,6 +36,11 @@
 						"internalType": "uint256",
 						"name": "_apyDown",
 						"type": "uint256"
+					},
+					{
+						"internalType": "address[]",
+						"name": "admins",
+						"type": "address[]"
 					}
 				],
 				"stateMutability": "nonpayable",
@@ -770,11 +775,11 @@
 	},
 	"sources": {
 		"contracts/CompoundStaking.sol": {
-			"keccak256": "0x03d38e6006846a6cf70d0dbe2596bb8a23a79fe8988768accec1eeb4d433a202",
+			"keccak256": "0x81916cfc185a8e0fbff803cea29fdffe5a9c00f387e2202f661666a707c10615",
 			"license": "MIT",
 			"urls": [
-				"bzz-raw://90ca11df41e3c0c7a4eae5c2ff0d4c9e5b4148990880006d68fe3d3f57139278",
-				"dweb:/ipfs/QmP8im4peVZDR6zxtM8ALzfVbPagNotGDxDFrg9rGW8uFX"
+				"bzz-raw://b4c1fc2422a8eecef44ee342e046cb5336328b193973efae6626e44e7d3e4af7",
+				"dweb:/ipfs/QmW7odHeN9NcZ9wnKRQypXR5RV8hMchyeF9iHD6qYvKjSU"
 			]
 		},
 		"contracts/interfaces/IERC20.sol": {
@@ -786,11 +791,11 @@
 			]
 		},
 		"contracts/libraries/AddressArrayLibrary.sol": {
-			"keccak256": "0xee5c09f7f6a807265814612e9d24626403360e6e1d8af0d61e819e969b1e531e",
+			"keccak256": "0x06b3e075d159db1e61a72e753f92ad1a519e394d984fee83185181126f562ee5",
 			"license": "MIT",
 			"urls": [
-				"bzz-raw://e89736701a212c4a667565e030d22aec36070580a28c6e965deb69c605319d7e",
-				"dweb:/ipfs/Qmf6EFi25vjmJm9oq8Qzhopn6aAzbeaX5ezwjmKKR2bpQe"
+				"bzz-raw://082a3ff1c7a1a6b95dcb6a514a077b4e8e5c409e6b0c5f77dfe4867a34f6f6ce",
+				"dweb:/ipfs/QmTgoSLNZH6Q6Z4ZUDLDZmoMwhu8GcHbPni8WieLPBpT9C"
 			]
 		}
 	},

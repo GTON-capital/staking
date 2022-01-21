@@ -163,10 +163,10 @@ contract CompoundStaking is IERC20 {
         require(sender != address(0), "ERC20: transfer from the zero address");
         require(recipient != address(0), "ERC20: transfer to the zero address");
 
-        uint transferShare = balanceToShare(amount);
-        require(userInfo[sender].share >= transferShare, "ERC20: transfer amount exceeds balance");
-        userInfo[sender].share -= transferShare;
-        userInfo[recipient].share += transferShare;
+        uint transferShareUnit = balanceToShare(amount);
+        require(userInfo[sender].share >= transferShareUnit, "ERC20: transfer amount exceeds balance");
+        userInfo[sender].share -= transferShareUnit;
+        userInfo[recipient].share += transferShareUnit;
 
         emit Transfer(sender, recipient, amount);
     }
