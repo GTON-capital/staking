@@ -15,17 +15,22 @@ contract CompoundStaking is IERC20 {
     bool public revertFlag;
     uint public totalShares;
     uint public potentiallyMinted;
-    uint public lastRewardBlock;
-    uint public requiredBalance;
-    uint public blocksInYear;
+    uint public lastRewardTimestamp;
+
+    uint public accamulatedRewardPerShare;
+    uint public totalAmounts;
+    uint public harvestInterval;
+ 
     uint public apyUp;
     uint public apyDown;
     uint public decimals;
     address[] public lpAdmins;
 
     struct UserInfo {
-        uint share;
-        uint tokenAtLastUserAction;
+        uint amount;
+        uint rewardDebt;
+        uint accamulatedReward;
+        uint lastHarvestTimestamp;
     }
 
     IERC20 public immutable token;
@@ -34,17 +39,17 @@ contract CompoundStaking is IERC20 {
 
     constructor(
         IERC20 _token,
-        uint _blocksInYear,
         string memory _name,
         string memory _symbol,
         uint _apyUp,
         uint _apyDown,
-        address[] memory admins
+        address[] memory admins,
+        uint _harvestInterval
     ) {
+        harvestInterval = _harvestInterval;
         owner = msg.sender;
         token = _token;
-        blocksInYear = _blocksInYear;
-        lastRewardBlock = block.number;
+        lastRewardTimestamp = block.timestamp;
         decimals = token.decimals();
         name = _name;
         symbol = _symbol;
@@ -74,24 +79,17 @@ contract CompoundStaking is IERC20 {
     event SetApy(uint oldDown, uint oldUp, uint newDown, uint newUp);
     event SetBlockInYear(uint oldBlocksInYear, uint newBlocksInYear);
     
+    // just return total in staking amount 
     function totalSupply() public view returns (uint256) {
-        uint tokenPerBlock = apyUp * requiredBalance / apyDown / blocksInYear;
-        uint delta = block.number - lastRewardBlock;
-        uint potentialMint = delta * tokenPerBlock;
-        return requiredBalance+potentialMint;
+        //uint delta = block.timestamp - lastRewardTimestamp;
+        //uint viewAcc = accamulatedRewardPerShare + (totalAmounts * delta * apyUp / apyDown / 31557600);
+        return  totalAmounts; 
     }
 
     function balanceOf(address _user) public view returns(uint) {
-        if(totalShares <= 0) return 0;
-        return userInfo[_user].share * totalSupply() / totalShares;
-    }
-
-    function shareToBalance(uint _share) public view returns(uint) { 
-        return _share * totalSupply() / totalShares;
-    }
-
-    function balanceToShare(uint _balance) public view returns(uint) { 
-        return _balance * totalShares / totalSupply();
+        UserInfo storage user = userInfo[_user];
+        uint acc = accamulatedRewardPerShare * user.amount - user.rewardDebt;
+        return user.accamulatedReward + acc + user.amount;
     }
 
     function setAdmins(address[] memory admins) public onlyOwner {
@@ -113,13 +111,6 @@ contract CompoundStaking is IERC20 {
         apyUp = _apyUp;
         apyDown = _apyDown;
         emit SetApy(oldDown, oldUp, _apyDown, _apyUp);
-    }
-
-    function setBlocksInYear(uint _blocksInYear) public onlyAdmin {
-        updateRewardPool();
-        uint oldBlocksInYear = blocksInYear;
-        blocksInYear = _blocksInYear;
-        emit SetBlockInYear(oldBlocksInYear, _blocksInYear);
     }
 
     function toggleRevert() public onlyOwner {
@@ -158,37 +149,34 @@ contract CompoundStaking is IERC20 {
     }
 
     function _transfer(
-        address sender,
-        address recipient,
-        uint amount
+        address _sender,
+        address _recipient,
+        uint _amount
     ) internal {
-        require(sender != address(0), "ERC20: transfer from the zero address");
-        require(recipient != address(0), "ERC20: transfer to the zero address");
+        updateRewardPool();
+        require(_sender != address(0), "ERC20: transfer from the zero address");
+        require(_recipient != address(0), "ERC20: transfer to the zero address");
 
-        uint transferShareUnit = balanceToShare(amount);
-        require(userInfo[sender].share >= transferShareUnit, "ERC20: transfer amount exceeds balance");
-        userInfo[sender].share -= transferShareUnit;
-        userInfo[recipient].share += transferShareUnit;
+        UserInfo storage sender = userInfo[_sender];
+        UserInfo storage recipient = userInfo[_recipient];
 
-        emit Transfer(sender, recipient, amount);
+        sender.accamulatedReward += accamulatedRewardPerShare * sender.amount - sender.rewardDebt;
+        recipient.accamulatedReward += accamulatedRewardPerShare * recipient.amount - recipient.rewardDebt;
+
+        sender.amount -= _amount;
+        recipient.amount += _amount;
+
+        sender.rewardDebt = accamulatedRewardPerShare * sender.amount;
+        recipient.rewardDebt = accamulatedRewardPerShare * recipient.amount;
+
+        emit Transfer(_sender, _recipient, _amount);
     }
 
     function transfer(address recipient, uint256 amount) public notReverted virtual override returns (bool) {
         updateRewardPool();
         _transfer(msg.sender, recipient, amount);
         return true;
-    }
-
-    function transferShare(
-        address to,
-        uint share
-    ) public notReverted {
-        require(userInfo[msg.sender].share >= share, "insufficent balance");
-        userInfo[msg.sender].share -= share;
-        userInfo[to].share += share;
-        userInfo[msg.sender].tokenAtLastUserAction = balanceOf(msg.sender);
-        userInfo[to].tokenAtLastUserAction = balanceOf(to);
-    }   
+    } 
 
     function transferFrom(
         address spender,
@@ -204,44 +192,48 @@ contract CompoundStaking is IERC20 {
     }
 
     function updateRewardPool() public notReverted {
-        uint tokenPerBlock = apyUp * requiredBalance / apyDown / blocksInYear;
-        uint delta = block.number - lastRewardBlock;
-        uint potentialMint = delta * tokenPerBlock;
-        potentiallyMinted += potentialMint;
-        requiredBalance += potentialMint;
-        lastRewardBlock = block.number;
+        uint delta = block.timestamp - lastRewardTimestamp;
+        accamulatedRewardPerShare +=  totalAmounts * delta * apyUp / apyDown / 31557600;
+        lastRewardTimestamp = block.timestamp;
     }
 
     function mint(uint _amount, address _to) external notReverted {
         updateRewardPool();
         require(_amount > 0, "Compound: Nothing to deposit");
         require(token.transferFrom(msg.sender,address(this),_amount),"");
-        uint256 currentShares = 0;
-        if (totalShares != 0) {
-            currentShares = _amount * totalShares / requiredBalance;
-        } else {
-            currentShares = _amount;
-        }
-        totalShares += currentShares;
-        requiredBalance += _amount;
+
         UserInfo storage user = userInfo[_to];
-        user.share += currentShares;
-        user.tokenAtLastUserAction = balanceOf(_to);
-        emit Transfer(address(0), _to, _amount);
+        user.accamulatedReward += accamulatedRewardPerShare * user.amount - user.rewardDebt;
+        totalAmounts += _amount;
+        user.amount += _amount;
+        user.rewardDebt = accamulatedRewardPerShare * user.amount;
     }
 
-    function burn(address _to, uint256 _share) public notReverted {
+    function harvest(uint256 _amount) public notReverted {
         updateRewardPool();
-        require(_share > 0, "Compound: Nothing to burn");
+        UserInfo storage user = userInfo[msg.sender];
+        // +1 to prevent efforts in scum of tstamp
+        require(user.lastHarvestTimestamp + harvestInterval + 1 > block.timestamp || 
+            user.lastHarvestTimestamp == 0,"not so fast");
+        user.lastHarvestTimestamp = block.timestamp;
+
+        user.accamulatedReward += accamulatedRewardPerShare * user.amount - user.rewardDebt;
+        require(_amount > 0, "Compound: Nothing to harvest");
+        require(_amount <= user.accamulatedReward, "Compound: isufficient to harvest");
+        user.accamulatedReward -= _amount;
+        require(token.transfer(msg.sender,_amount),"");
+    }
+
+    function burn(address _to, uint256 _amount) public notReverted {
+        updateRewardPool();
+        require(_amount > 0, "Compound: Nothing to burn");
 
         UserInfo storage user = userInfo[msg.sender];
-        require(_share <= user.share, "Compound: Withdraw amount exceeds balance");
-        uint256 currentAmount = requiredBalance * _share / totalShares;
-        user.share -= _share;
-        totalShares -= _share;
-        requiredBalance -= currentAmount;
-        user.tokenAtLastUserAction = balanceOf(msg.sender);
-        require(token.transfer(_to,currentAmount),"Compound: Not enough token to transfer");
-        emit Transfer(_to, address(0), currentAmount);
+        user.accamulatedReward += accamulatedRewardPerShare * user.amount - user.rewardDebt;
+        totalAmounts -= _amount;
+        user.amount -= _amount;
+        user.rewardDebt = accamulatedRewardPerShare * user.amount;
+
+        require(token.transfer(_to,_amount),"Compound: Not enough token to transfer");
     }
 }
