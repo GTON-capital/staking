@@ -4,7 +4,7 @@ pragma solidity 0.8.8;
 import "./interfaces/IERC20.sol";
 import "./libraries/AddressArrayLibrary.sol";
 
-contract CompoundStaking is IERC20 {
+contract CompoundStaking is IERC20, IERC20Metadata {
     string public name;
     string public symbol;
 
@@ -21,7 +21,7 @@ contract CompoundStaking is IERC20 {
  
     uint public apyUp;
     uint public apyDown;
-    uint public decimals;
+    uint8 public decimals;
     address[] public lpAdmins;
 
     struct UserInfo {
@@ -48,7 +48,7 @@ contract CompoundStaking is IERC20 {
         owner = msg.sender;
         token = _token;
         lastRewardTimestamp = block.timestamp;
-        decimals = token.decimals();
+        decimals = IERC20Metadata(address(_token)).decimals();
         name = _name;
         symbol = _symbol;
         apyUp = _apyUp;
