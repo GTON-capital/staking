@@ -84,20 +84,16 @@ describe("Compound", () => {
         await expect(compound.lpAdmins(3)).to.be.reverted;
     })
 
-    it("set apys", async () => {
+    it("set aprs", async () => {
         // random numbers
-        const apyUp = BigNumber.from("140")
-        const apyDown = BigNumber.from("13")
-        await expect(compound.connect(other).setApy(apyUp, apyDown)).to.be.revertedWith('Compound: permitted to admins only.')
-        await compound.setApy(apyUp, apyDown)
-        expect(await compound.apyUp()).to.eq(apyUp)
-        expect(await compound.apyDown()).to.eq(apyDown)
+        const aprBasisPoints = BigNumber.from("10769")
+        await expect(compound.connect(other).setApr(aprBasisPoints)).to.be.revertedWith('Compound: permitted to admins only.')
+        await compound.setApr(aprBasisPoints)
+        expect(await compound.aprBasisPoints()).to.eq(aprBasisPoints)
 
-        const apyUpAdmin = BigNumber.from("5977")
-        const apyDownAdmin = BigNumber.from("854")
-        await compound.connect(admin0).setApy(apyUpAdmin, apyDownAdmin)
-        expect(await compound.apyUp()).to.eq(apyUpAdmin)
-        expect(await compound.apyDown()).to.eq(apyDownAdmin)
+        const aprBasisPointsAdmin = BigNumber.from("69988")
+        await compound.connect(admin0).setApr(aprBasisPointsAdmin)
+        expect(await compound.aprBasisPoints()).to.eq(aprBasisPointsAdmin)
     })
 
     it("withdraw token", async () => {
@@ -114,24 +110,21 @@ describe("Compound", () => {
     const updRewardData = [
         {
             period: 100,
-            apyUp: BigNumber.from("120000000"),
-            apyDown: BigNumber.from("1000000000"),
+            aprBasisPoints: BigNumber.from("1200"),
             amount: expandTo18Decimals(150),
             user: bob,
             blocksInYear: BigNumber.from("1012"),
         },
         {
             period: 1000,
-            apyUp: BigNumber.from("7500000"),
-            apyDown: BigNumber.from("10000000"),
+            aprBasisPoints: BigNumber.from("75000"),
             amount: expandTo18Decimals(897),
             user: alice,
             blocksInYear: BigNumber.from("9214"),
         },
         {
             period: 5000,
-            apyUp: BigNumber.from("9000"),
-            apyDown: BigNumber.from("100000"),
+            aprBasisPoints: BigNumber.from("900"),
             amount: expandTo18Decimals(54000),
             user: fedor,
             blocksInYear: BigNumber.from("15266"),
@@ -139,16 +132,15 @@ describe("Compound", () => {
     ]
 
     async function getTokenPerBlock(): Promise<BigNumber> {
-        const apyUp = await compound.apyUp();
-        const apyDown = await compound.apyDown();
+        const aprBasisPoints = await compound.aprBasisPoints();
         const required = await compound.requiredBalance();
         const blocksInYear = await compound.blocksInYear();
-        return apyUp.mul(required).div(apyDown).div(blocksInYear)
+        return aprBasisPoints.mul(required).div(10000).div(blocksInYear)
     }
 
-    async function testUpdateReward({ period, apyUp, apyDown }: { period: number, apyUp: BigNumber, apyDown: BigNumber }) {
+    async function testUpdateReward({ period, aprBasisPoints }: { period: number, aprBasisPoints: BigNumber }) {
         // await compound.setTokenPerBlock(rewardPerBlock);
-        await compound.setApy(apyUp, apyDown);
+        await compound.setApr(aprBasisPoints);
         const lrb = await compound.lastRewardBlock();
         const potential = await compound.potentiallyMinted();
         const required = await compound.requiredBalance();
@@ -169,9 +161,9 @@ describe("Compound", () => {
     }
 
     it("update reward pool", async () => {
-        await compound.toggleRevert();
-        await expect(compound.updateRewardPool()).to.be.revertedWith("Compound: reverted flag on.")
-        await compound.toggleRevert();
+        await compound.togglePause();
+        await expect(compound.updateRewardPool()).to.be.revertedWith("Compound: contract paused.")
+        await compound.togglePause();
 
         for (const item of updRewardData) {
             await testUpdateReward(item)
@@ -187,7 +179,7 @@ describe("Compound", () => {
         await expect(compound.mint(amount, wallet.address)).to.be.revertedWith("ERC20: transfer amount exceeds allowance")
 
         await compound.toggleRevert();
-        await expect(compound.mint(amount, wallet.address)).to.be.revertedWith("Compound: reverted flag on.")
+        await expect(compound.mint(amount, wallet.address)).to.be.revertedWith("Compound: contract paused")
         await compound.toggleRevert();
 
         await gton.approve(compound.address, amount);
@@ -230,7 +222,7 @@ describe("Compound", () => {
         await expect(compound.burn(wallet.address, share)).to.be.revertedWith("ERC20: transfer amount exceeds balance")
 
         await compound.toggleRevert();
-        await expect(compound.burn(wallet.address, share)).to.be.revertedWith("Compound: reverted flag on.")
+        await expect(compound.burn(wallet.address, share)).to.be.revertedWith("Compound: contract paused")
         await compound.toggleRevert();
 
         await gton.transfer(compound.address, await gton.balanceOf(wallet.address));
@@ -274,7 +266,7 @@ describe("Compound", () => {
         await expect(compound.transfer(other.address, balance.add(expandTo18Decimals(100)))).to.be.revertedWith("ERC20: transfer amount exceeds balance")
 
         await compound.toggleRevert();
-        await expect(compound.transfer(other.address, balance)).to.be.revertedWith("Compound: reverted flag on.")
+        await expect(compound.transfer(other.address, balance)).to.be.revertedWith("Compound: contract paused")
         await compound.toggleRevert();
 
 
@@ -295,9 +287,9 @@ describe("Compound", () => {
         const secondAmount = BigNumber.from("1000000")
         expect(await compound.allowance(wallet.address, bob.address)).to.eq(0)
 
-        await compound.toggleRevert();
-        await expect(compound.approve(alice.address, amount)).to.be.revertedWith("Compound: reverted flag on.")
-        await compound.toggleRevert();
+        await compound.togglePause();
+        await expect(compound.approve(alice.address, amount)).to.be.revertedWith("Compound: contract paused")
+        await compound.togglePause();
 
         // await expect(compound.approve(wallet.address, 0)).to.be.revertedWith("ERC20: approve to the zero address")
         await compound.approve(alice.address, amount)
@@ -317,7 +309,7 @@ describe("Compound", () => {
         await expect(compound.connect(bob).transferFrom(wallet.address, bob.address, 15)).to.be.revertedWith("ERC20: transfer amount exceeds allowance")
         
         await compound.toggleRevert();
-        await expect(compound.transferFrom(wallet.address, bob.address, 15)).to.be.revertedWith("Compound: reverted flag on.")
+        await expect(compound.transferFrom(wallet.address, bob.address, 15)).to.be.revertedWith("Compound: contract paused")
         await compound.toggleRevert();
         
         const balance = await compound.balanceOf(wallet.address)
@@ -369,15 +361,15 @@ describe("Compound", () => {
         await compound.mint(amount, wallet.address)
     })
 
-    context("Apy checking", function () {
+    context("Apr checking", function () {
         const decimals = BigNumber.from("10000000")
 
-        it("After year APY of each user should be correct and APY of all sc the same", async () => {
+        it("After year APR of each user should be correct and APR of all sc the same", async () => {
             for (const i of updRewardData) {
-                const apy = i.apyUp.mul(decimals).div(i.apyDown)
-                await compound.setApy(i.apyUp, i.apyDown)
+                const apr = i.aprBasisPoints.mul(decimals).div(10000)
+                await compound.setApr(i.aprBasisPoints)
                 // await compound.setBlocksInYear(i.blocksInYear)
-                const balanceAfterYear = i.amount.add(i.amount.mul(apy).div(decimals))
+                const balanceAfterYear = i.amount.add(i.amount.mul(apr).div(decimals))
                 await gton.approve(compound.address, i.amount);
                 await compound.mint(i.amount, i.user.address)
 
@@ -408,13 +400,12 @@ describe("Compound", () => {
         })
         */
 
-        async function checkUserApy(user: Wallet, blockAmount: number, stakedAmount: BigNumber) {
-            const apyUp = await compound.apyUp()
-            const apyDown = await compound.apyDown()
+        async function checkUserApr(user: Wallet, blockAmount: number, stakedAmount: BigNumber) {
+            const aprBasisPoints = await compound.aprBasisPoints()
             const biy = await compound.blocksInYear()
 
-            const apy = apyUp.mul(decimals).div(apyDown)
-            const earned = stakedAmount.mul(apy).mul(blockAmount).div(decimals).div(biy)
+            const apr = aprBasisPoints.mul(decimals).div(10000)
+            const earned = stakedAmount.mul(apr).mul(blockAmount).div(decimals).div(biy)
             const balanceBefore = (await compound.balanceOf(user.address)).sub(stakedAmount)
             const balanceAfter = stakedAmount.add(earned)
 
@@ -423,19 +414,19 @@ describe("Compound", () => {
             expect(await compound.balanceOf(user.address)).to.be.closeTo(balanceAfter.add(balanceBefore), 1000000000000000)
         }
 
-        it("for each user we should emulate several mint and burn actions and calculate APY", async () => {
+        it("for each user we should emulate several mint and burn actions and calculate APR", async () => {
             await fillUpCompound();
             const fedorAmount = expandTo18Decimals(180)
             await gton.approve(compound.address, fedorAmount)
             await compound.mint(fedorAmount, fedor.address)
-            await checkUserApy(fedor, 150, fedorAmount)
+            await checkUserApr(fedor, 150, fedorAmount)
 
-            await compound.setApy("150000", "1000000") // balance update here
+            await compound.setApr("1500") // balance update here
             const balance = await compound.balanceOf(fedor.address)
             const share = balanceToShare(balance, await futureTotalSupply(1), await compound.totalShares())
             
             await compound.connect(fedor).transfer(admin0.address, balance)
-            await checkUserApy(admin0, 100, share)
+            await checkUserApr(admin0, 100, share)
 
             // await compound.setApy("670000", "1000000") // balance update here
             // const aliceBalance = await compound.balanceOf(alice.address)   
@@ -455,7 +446,7 @@ describe("Compound", () => {
             const amount = expandTo18Decimals(180)
             await gton.approve(compound.address, amount)
             await compound.mint(amount, admin1.address)
-            await checkUserApy(admin1, 800, amount)
+            await checkUserApr(admin1, 800, amount)
         })
         // Add checks of the APY when it changes in case of users mint and burn actions (for users and contract in total)
         // Add checks of the block time parameters in the contract and emulate that it has been changed for some time, the APY should be constant

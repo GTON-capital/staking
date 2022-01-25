@@ -10,7 +10,7 @@ contract CompoundStaking is IERC20, IERC20Metadata {
 
     address public owner;
     
-    bool public revertFlag;
+    bool public paused;
     uint public totalShares;
     uint public potentiallyMinted;
     uint public lastRewardTimestamp;
@@ -19,8 +19,8 @@ contract CompoundStaking is IERC20, IERC20Metadata {
     uint public totalAmounts;
     uint public harvestInterval;
  
-    uint public apyUp;
-    uint public apyDown;
+    uint public aprBasisPoints;
+
     uint8 public decimals;
     address[] public lpAdmins;
 
@@ -39,8 +39,7 @@ contract CompoundStaking is IERC20, IERC20Metadata {
         IERC20 _token,
         string memory _name,
         string memory _symbol,
-        uint _apyUp,
-        uint _apyDown,
+        uint _aprBasisPoints,
         address[] memory admins,
         uint _harvestInterval
     ) {
@@ -51,13 +50,12 @@ contract CompoundStaking is IERC20, IERC20Metadata {
         decimals = IERC20Metadata(address(_token)).decimals();
         name = _name;
         symbol = _symbol;
-        apyUp = _apyUp;
-        apyDown = _apyDown;
+        aprBasisPoints = _aprBasisPoints;
         lpAdmins = admins;
     }
 
-    modifier notReverted() {
-        require(!revertFlag, "Compound: reverted flag on.");
+    modifier whenNotPaused() {
+        require(!paused, "Compound: contract paused.");
         _;
     }
 
@@ -72,15 +70,12 @@ contract CompoundStaking is IERC20, IERC20Metadata {
         _;
     }
 
-    event RevertFlag(bool flag);
+    event Pause(bool flag);
     event SetOwner(address oldOwner, address newOwner);
-    event SetApy(uint oldDown, uint oldUp, uint newDown, uint newUp);
-    event SetBlockInYear(uint oldBlocksInYear, uint newBlocksInYear);
-    
+    event SetApr(uint oldBasisPoints, uint newBasisPoints);
+
     // just return total in staking amount 
     function totalSupply() public view returns (uint256) {
-        //uint delta = block.timestamp - lastRewardTimestamp;
-        //uint viewAcc = accamulatedRewardPerShare + (totalAmounts * delta * apyUp / apyDown / 31557600);
         return  totalAmounts; 
     }
 
@@ -102,18 +97,16 @@ contract CompoundStaking is IERC20, IERC20Metadata {
         }
     }
 
-    function setApy(uint _apyUp, uint _apyDown) public onlyAdmin {
+    function setApr(uint _aprBasisPoints) public onlyAdmin {
         updateRewardPool();
-        uint oldDown = apyDown;
-        uint oldUp = apyUp;
-        apyUp = _apyUp;
-        apyDown = _apyDown;
-        emit SetApy(oldDown, oldUp, _apyDown, _apyUp);
+        uint oldAprBasisPoints = aprBasisPoints;
+        aprBasisPoints = _aprBasisPoints;
+        emit SetApr(oldAprBasisPoints, aprBasisPoints);
     }
 
-    function toggleRevert() public onlyOwner {
-        revertFlag = !revertFlag;
-        emit RevertFlag(revertFlag);
+    function togglePause() public onlyOwner {
+        paused = !paused;
+        emit Pause(paused);
     }
 
     function withdrawToken(IERC20 _token, address _to, uint _amount) public onlyOwner {
@@ -141,7 +134,7 @@ contract CompoundStaking is IERC20, IERC20Metadata {
         emit Approval(_owner, spender, amount);
     }
 
-    function approve(address spender, uint amount) public notReverted virtual override returns (bool) {
+    function approve(address spender, uint amount) public whenNotPaused virtual override returns (bool) {
         _approve(msg.sender, spender, amount);
         return true;
     }
@@ -170,7 +163,7 @@ contract CompoundStaking is IERC20, IERC20Metadata {
         emit Transfer(_sender, _recipient, _amount);
     }
 
-    function transfer(address recipient, uint256 amount) public notReverted virtual override returns (bool) {
+    function transfer(address recipient, uint256 amount) public whenNotPaused virtual override returns (bool) {
         updateRewardPool();
         _transfer(msg.sender, recipient, amount);
         return true;
@@ -180,7 +173,7 @@ contract CompoundStaking is IERC20, IERC20Metadata {
         address spender,
         address recipient,
         uint256 amount
-    ) public notReverted virtual override returns (bool) {
+    ) public whenNotPaused virtual override returns (bool) {
         updateRewardPool();
         _transfer(spender, recipient, amount);
         uint256 currentAllowance = allowances[spender][msg.sender];
@@ -189,13 +182,13 @@ contract CompoundStaking is IERC20, IERC20Metadata {
         return true;
     }
 
-    function updateRewardPool() public notReverted {
+    function updateRewardPool() public whenNotPaused {
         uint delta = block.timestamp - lastRewardTimestamp;
-        accamulatedRewardPerShare +=  totalAmounts * delta * apyUp / apyDown / 31557600;
+        accamulatedRewardPerShare +=  totalAmounts * delta * aprBasisPoints / 10000 / 31557600;
         lastRewardTimestamp = block.timestamp;
     }
 
-    function mint(uint _amount, address _to) external notReverted {
+    function mint(uint _amount, address _to) external whenNotPaused {
         updateRewardPool();
         require(_amount > 0, "Compound: Nothing to deposit");
         require(token.transferFrom(msg.sender,address(this),_amount),"");
@@ -207,7 +200,7 @@ contract CompoundStaking is IERC20, IERC20Metadata {
         user.rewardDebt = accamulatedRewardPerShare * user.amount;
     }
 
-    function harvest(uint256 _amount) public notReverted {
+    function harvest(uint256 _amount) public whenNotPaused {
         updateRewardPool();
         UserInfo storage user = userInfo[msg.sender];
         // +1 to prevent efforts in scum of tstamp
@@ -222,7 +215,7 @@ contract CompoundStaking is IERC20, IERC20Metadata {
         require(token.transfer(msg.sender,_amount),"");
     }
 
-    function burn(address _to, uint256 _amount) public notReverted {
+    function burn(address _to, uint256 _amount) public whenNotPaused {
         updateRewardPool();
         require(_amount > 0, "Compound: Nothing to burn");
 

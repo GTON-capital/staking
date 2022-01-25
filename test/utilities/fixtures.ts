@@ -24,8 +24,7 @@ export const compoundFixture: Fixture<CompoundFixture> = async function ([
         gton.address,
         "sGTON",
         "sGTON",
-        140,
-        15,
+        2500,
         [admin0.address, admin1.address],
         7)
     ) as CompoundStaking
