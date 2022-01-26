@@ -4,7 +4,7 @@ pragma solidity 0.8.8;
 import "./interfaces/IERC20.sol";
 import "./libraries/AddressArrayLibrary.sol";
 
-contract CompoundStaking is IERC20, IERC20Metadata {
+contract Staking is IERC20, IERC20Metadata {
     string public name;
     string public symbol;
 
@@ -55,18 +55,18 @@ contract CompoundStaking is IERC20, IERC20Metadata {
     }
 
     modifier whenNotPaused() {
-        require(!paused, "Compound: contract paused.");
+        require(!paused, "Staking: contract paused.");
         _;
     }
 
     modifier onlyOwner() {
-        require(msg.sender == owner, "Compound: permitted to owner only.");
+        require(msg.sender == owner, "Staking: permitted to owner only.");
         _;
     }
 
     modifier onlyAdmin() {
         require(msg.sender==owner || AddressArrayLib.indexOf(lpAdmins, msg.sender) != -1, 
-            "Compound: permitted to admins only.");
+            "Staking: permitted to admins only.");
         _;
     }
 
@@ -76,7 +76,7 @@ contract CompoundStaking is IERC20, IERC20Metadata {
 
     // just return total in staking amount 
     function totalSupply() public view returns (uint256) {
-        return  totalAmounts; 
+        return totalAmounts; 
     }
 
     function balanceOf(address _user) public view returns(uint) {
@@ -184,13 +184,13 @@ contract CompoundStaking is IERC20, IERC20Metadata {
 
     function updateRewardPool() public whenNotPaused {
         uint delta = block.timestamp - lastRewardTimestamp;
-        accamulatedRewardPerShare +=  totalAmounts * delta * aprBasisPoints / 10000 / 31557600;
+        accamulatedRewardPerShare += totalAmounts * delta * aprBasisPoints / 10000 / 31557600;
         lastRewardTimestamp = block.timestamp;
     }
 
     function mint(uint _amount, address _to) external whenNotPaused {
         updateRewardPool();
-        require(_amount > 0, "Compound: Nothing to deposit");
+        require(_amount > 0, "Staking: Nothing to deposit");
         require(token.transferFrom(msg.sender,address(this),_amount),"");
 
         UserInfo storage user = userInfo[_to];
@@ -209,15 +209,15 @@ contract CompoundStaking is IERC20, IERC20Metadata {
         user.lastHarvestTimestamp = block.timestamp;
 
         user.accamulatedReward += accamulatedRewardPerShare * user.amount - user.rewardDebt;
-        require(_amount > 0, "Compound: Nothing to harvest");
-        require(_amount <= user.accamulatedReward, "Compound: isufficient to harvest");
+        require(_amount > 0, "Staking: Nothing to harvest");
+        require(_amount <= user.accamulatedReward, "Staking: isufficient to harvest");
         user.accamulatedReward -= _amount;
         require(token.transfer(msg.sender,_amount),"");
     }
 
     function burn(address _to, uint256 _amount) public whenNotPaused {
         updateRewardPool();
-        require(_amount > 0, "Compound: Nothing to burn");
+        require(_amount > 0, "Staking: Nothing to burn");
 
         UserInfo storage user = userInfo[msg.sender];
         user.accamulatedReward += accamulatedRewardPerShare * user.amount - user.rewardDebt;
@@ -225,6 +225,6 @@ contract CompoundStaking is IERC20, IERC20Metadata {
         user.amount -= _amount;
         user.rewardDebt = accamulatedRewardPerShare * user.amount;
 
-        require(token.transfer(_to,_amount),"Compound: Not enough token to transfer");
+        require(token.transfer(_to,_amount),"Staking: Not enough token to transfer");
     }
 }
