@@ -49,11 +49,6 @@ describe("Staking", () => {
     it("constructor initializes variables", async () => {
         const lastBlock = (await waffle.provider.getBlock("latest")).number
         expect(await staking.owner()).to.eq(wallet.address)
-        // expect(await staking.blocksInYear()).to.eq(BigNumber.from("100000"))
-        expect(await staking.totalShares()).to.eq(0)
-        expect(await staking.potentiallyMinted()).to.eq(0)
-        // expect(await staking.lastRewardBlock()).to.eq(lastBlock)
-        // expect(await staking.requiredBalance()).to.eq(0)
     })
 
     it("transfer ownership", async () => {
@@ -142,13 +137,13 @@ describe("Staking", () => {
         // await staking.setTokenPerBlock(rewardPerBlock);
         await staking.setApr(aprBasisPoints);
         const lrb = await staking.lastRewardBlock();
-        const potential = await staking.potentiallyMinted();
+        // const potential = await staking.potentiallyMinted();
         const required = await staking.requiredBalance();
         await mineBlocks(waffle.provider, period - 1) // to count upcoming txn
         const tpb = await getTokenPerBlock()
         const minted = tpb.mul(period)
         await staking.updateRewardPool();
-        expect(await staking.potentiallyMinted()).to.eq(potential.add(minted))
+        // expect(await staking.potentiallyMinted()).to.eq(potential.add(minted))
         expect(await staking.requiredBalance()).to.eq(required.add(minted))
         expect(await staking.lastRewardBlock()).to.eq(lrb.add(period))
     }
@@ -439,8 +434,6 @@ describe("Staking", () => {
 
         it("if no one farms there should be 0 income at any block after somebody got in, his APY should suite rules", async () => {
             await mineBlocks(waffle.provider, 100);
-            expect(await staking.potentiallyMinted()).to.eq(0)
-            // expect(await staking.requiredBalance()).to.eq(0)
             expect(await staking.balanceOf(admin1.address)).to.eq(0)
 
             const amount = expandTo18Decimals(180)

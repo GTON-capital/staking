@@ -11,12 +11,10 @@ contract Staking is IERC20, IERC20Metadata {
     address public owner;
     
     bool public paused;
-    uint public totalShares;
-    uint public potentiallyMinted;
     uint public lastRewardTimestamp;
 
     uint public accamulatedRewardPerShare;
-    uint public totalAmounts;
+    uint public totalAmount;
     uint public harvestInterval;
  
     uint public aprBasisPoints;
@@ -43,15 +41,15 @@ contract Staking is IERC20, IERC20Metadata {
         address[] memory admins,
         uint _harvestInterval
     ) {
-        harvestInterval = _harvestInterval;
-        owner = msg.sender;
         token = _token;
-        lastRewardTimestamp = block.timestamp;
-        decimals = IERC20Metadata(address(_token)).decimals();
         name = _name;
         symbol = _symbol;
         aprBasisPoints = _aprBasisPoints;
         lpAdmins = admins;
+        harvestInterval = _harvestInterval;
+        owner = msg.sender;
+        lastRewardTimestamp = block.timestamp;
+        decimals = IERC20Metadata(address(_token)).decimals();
     }
 
     modifier whenNotPaused() {
@@ -76,7 +74,7 @@ contract Staking is IERC20, IERC20Metadata {
 
     // just return total in staking amount 
     function totalSupply() public view returns (uint256) {
-        return totalAmounts; 
+        return totalAmount; 
     }
 
     function balanceOf(address _user) public view returns(uint) {
@@ -184,7 +182,7 @@ contract Staking is IERC20, IERC20Metadata {
 
     function updateRewardPool() public whenNotPaused {
         uint delta = block.timestamp - lastRewardTimestamp;
-        accamulatedRewardPerShare += totalAmounts * delta * aprBasisPoints / 10000 / 31557600;
+        accamulatedRewardPerShare += totalAmount * delta * aprBasisPoints / 10000 / 31557600;
         lastRewardTimestamp = block.timestamp;
     }
 
@@ -195,7 +193,7 @@ contract Staking is IERC20, IERC20Metadata {
 
         UserInfo storage user = userInfo[_to];
         user.accamulatedReward += accamulatedRewardPerShare * user.amount - user.rewardDebt;
-        totalAmounts += _amount;
+        totalAmount += _amount;
         user.amount += _amount;
         user.rewardDebt = accamulatedRewardPerShare * user.amount;
     }
@@ -205,7 +203,7 @@ contract Staking is IERC20, IERC20Metadata {
         UserInfo storage user = userInfo[msg.sender];
         // +1 to prevent efforts in scum of tstamp
         require(user.lastHarvestTimestamp + harvestInterval + 1 > block.timestamp || 
-            user.lastHarvestTimestamp == 0,"not so fast");
+            user.lastHarvestTimestamp == 0, "not so fast");
         user.lastHarvestTimestamp = block.timestamp;
 
         user.accamulatedReward += accamulatedRewardPerShare * user.amount - user.rewardDebt;
@@ -221,7 +219,7 @@ contract Staking is IERC20, IERC20Metadata {
 
         UserInfo storage user = userInfo[msg.sender];
         user.accamulatedReward += accamulatedRewardPerShare * user.amount - user.rewardDebt;
-        totalAmounts -= _amount;
+        totalAmount -= _amount;
         user.amount -= _amount;
         user.rewardDebt = accamulatedRewardPerShare * user.amount;
 
