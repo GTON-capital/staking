@@ -5,7 +5,8 @@ import { compoundFixture } from "./utilities/fixtures"
 import { mineBlocks, setTimestamp, expandTo18Decimals, time } from "./utilities/index"
 
 import { ERC20 } from "../types/ERC20"
-import { CompoundStaking } from "../types/CompoundStaking"
+import { Staking } from "../types/Staking"
+import exp from "constants"
 
 
 
@@ -19,7 +20,7 @@ describe("Compound", () => {
     })
 
     let gton: ERC20
-    let compound: CompoundStaking
+    let compound: Staking
     beforeEach("deploy test contracts", async () => {
         ; ({
             gton,
@@ -51,65 +52,34 @@ describe("Compound", () => {
     it("constructor initializes variables", async () => {
         const lastBlock = (await waffle.provider.getBlock("latest")).timestamp
         expect(await compound.owner()).to.eq(wallet.address)
-        expect(await compound.totalAmounts()).to.eq(0)
+        expect(await compound.totalAmount()).to.eq(0)
         expect(await compound.harvestInterval()).to.eq(86400)
         expect(await compound.accumulatedRewardPerShare()).to.eq(0)
         expect(await compound.decimals()).to.eq(await gton.decimals())
         expect(await compound.lastRewardTimestamp()).to.eq(lastBlock)
-        const admins = [await compound.admins(0), await compound.admins(1)]
-        expect(admins).to.have.members([admin0.address, admin1.address])
+        expect(await compound.aprBasisPoints()).to.eq(2500)
     })
 
     it("transfer ownership", async () => {
-        await expect(compound.connect(other).transferOwnership(wallet.address)).to.be.revertedWith('Compound: permitted to owner only.')
+        await expect(compound.connect(other).transferOwnership(wallet.address)).to.be.revertedWith('Staking: permitted to owner only.')
         await compound.transferOwnership(other.address)
         expect(await compound.owner()).to.eq(other.address)
     })
 
-    it("setAdmins", async () => {
-        await expect(compound.connect(other).setAdmins([alice.address, bob.address])).to.be.revertedWith('Compound: permitted to owner only.')
-        // expect admin to fail to setAdmins
-        await expect(compound.connect(admin0).setAdmins([alice.address, bob.address])).to.be.revertedWith('Compound: permitted to owner only.')
-        await compound.setAdmins([alice.address, bob.address]);
-        // 0 and 1 indicies are for admin0 and admin1
-        expect(await compound.admins(2)).to.eq(alice.address);
-        expect(await compound.admins(3)).to.eq(bob.address);
-    })
-
-    it("removeAdmins", async () => {
-        await compound.setAdmins([alice.address, bob.address, other.address]);
-        // expect admin to fail to removeAdmins
-        await expect(compound.connect(admin0).removeAdmins([admin0.address])).to.be.revertedWith('Compound: permitted to owner only.')
-        // 0 and 1 indicies are for admin0 and admin1
-        expect(await compound.admins(2)).to.eq(alice.address);
-        expect(await compound.admins(3)).to.eq(bob.address);
-        await compound.removeAdmins([alice.address, other.address]);
-        expect(await compound.admins(2)).to.eq(bob.address);
-        await expect(compound.admins(3)).to.be.reverted;
-    })
-
-    it("set apys", async () => {
+    it("set APR", async () => {
         // random numbers
-        const apyNominator = BigNumber.from("140")
-        const apyDenominator = BigNumber.from("13")
-        await expect(compound.connect(other).setApy(apyNominator, apyDenominator)).to.be.revertedWith('Compound: permitted to admins only.')
-        await compound.setApy(apyNominator, apyDenominator)
-        expect(await compound.apyNominator()).to.eq(apyNominator)
-        expect(await compound.apyDenominator()).to.eq(apyDenominator)
-
-        const apyNominatorAdmin = BigNumber.from("5977")
-        const apyDenominatorAdmin = BigNumber.from("854")
-        await compound.connect(admin0).setApy(apyNominatorAdmin, apyDenominatorAdmin)
-        expect(await compound.apyNominator()).to.eq(apyNominatorAdmin)
-        expect(await compound.apyDenominator()).to.eq(apyDenominatorAdmin)
+        const apr = BigNumber.from("140")
+        await expect(compound.connect(other).setApr(apr)).to.be.revertedWith('Staking: permitted to owner only.')
+        await compound.setApr(apr)
+        expect(await compound.aprBasisPoints()).to.eq(apr)
     })
 
     it("withdraw token", async () => {
         const amount = BigNumber.from(15000000000000)
         gton.transfer(compound.address, amount)
-        await expect(compound.connect(other).withdrawToken(gton.address, wallet.address, amount)).to.be.revertedWith('Compound: permitted to owner only')
+        await expect(compound.connect(other).withdrawToken(gton.address, wallet.address, amount)).to.be.revertedWith('Staking: permitted to owner only')
         // expect admin to fail to withdraw
-        await expect(compound.connect(admin0).withdrawToken(gton.address, wallet.address, amount)).to.be.revertedWith('Compound: permitted to owner only')
+        await expect(compound.connect(admin0).withdrawToken(gton.address, wallet.address, amount)).to.be.revertedWith('Staking: permitted to owner only')
         await compound.withdrawToken(gton.address, other.address, amount)
         expect(await gton.balanceOf(other.address)).to.eq(amount)
         expect(await gton.balanceOf(compound.address)).to.eq(0)
@@ -118,22 +88,19 @@ describe("Compound", () => {
     const updRewardData = [
         {
             period: 100,
-            apyNominator: BigNumber.from("120000000"),
-            apyDenominator: BigNumber.from("1000000000"),
+            apr: BigNumber.from("1200"),
             amount: expandTo18Decimals(150),
             user: bob,
         },
         {
             period: 1000,
-            apyNominator: BigNumber.from("7500000"),
-            apyDenominator: BigNumber.from("10000000"),
+            apr: BigNumber.from("7500"),
             amount: expandTo18Decimals(897),
             user: alice,
         },
         {
             period: 5000,
-            apyNominator: BigNumber.from("9000"),
-            apyDenominator: BigNumber.from("100000"),
+            apr: BigNumber.from("900"),
             amount: expandTo18Decimals(54000),
             user: other,
         },
@@ -141,33 +108,32 @@ describe("Compound", () => {
 
     it("update reward pool", async () => {
         for (const item of updRewardData) {
-            await compound.setApy(item.apyNominator, item.apyDenominator);
+            await compound.setApr(item.apr);
             const prevAccRewardPerShare = await compound.accumulatedRewardPerShare();
             const lastChangeTS = await compound.lastRewardTimestamp();
             await setTimestamp(waffle.provider, lastChangeTS.add(time.day).toNumber())
             await compound.updateRewardPool()
             const delta = (await compound.lastRewardTimestamp()).sub(lastChangeTS)
-            const minted = calcDecimals.mul(delta).mul(item.apyNominator).div(item.apyDenominator).div(time.year)
+            const minted = calcDecimals.mul(delta).mul(item.apr).div(10000).div(time.year)
 
             expect(await compound.accumulatedRewardPerShare()).to.eq(prevAccRewardPerShare.add(minted))
             expect(await compound.lastRewardTimestamp()).to.eq(lastChangeTS.add(time.day).add(1))
         }
 
-        await compound.toggleRevert();
-        await expect(compound.updateRewardPool()).to.be.revertedWith("Compound: reverted flag on.")
-        await compound.toggleRevert();
+        await compound.togglePause();
+        await expect(compound.updateRewardPool()).to.be.revertedWith("Staking: contract paused.")
+        await compound.togglePause();
     })
     async function updateDelta(sec: number = 1) {
-        const apyD = await compound.apyDenominator();
-        const apyN = await compound.apyNominator();
+        const apr = await compound.aprBasisPoints();
         const lastRewardTimestamp = await compound.lastRewardTimestamp()
         const currentBlockTS = (await waffle.provider.getBlock("latest")).timestamp
         const delta = BigNumber.from(currentBlockTS).add(sec).sub(lastRewardTimestamp)
-        return calcDecimals.mul(delta).mul(apyN).div(apyD).div(time.year)
+        return calcDecimals.mul(delta).mul(apr).div(10000).div(time.year)
     }
 
     async function mint(forUser: string, amount: BigNumberish) {
-        const beforeTotalAmount = await compound.totalAmounts()
+        const beforeTotalAmount = await compound.totalAmount()
         const beforeState = await compound.userInfo(forUser);
         const beforeAmount = beforeState.amount
         const accRewardPerShare = await compound.accumulatedRewardPerShare()
@@ -182,18 +148,18 @@ describe("Compound", () => {
         expect(res.rewardDebt).to.eq(rewardDebt)
         expect(res.accumulatedReward).to.eq(beforeAmount.gt(0) ? accPerShareAfterShareUpdate : 0) // imposiible to have reward right after mint
         expect(await compound.accumulatedRewardPerShare()).to.eq(accPerShareBeforeShareUpdate)
-        expect(await compound.totalAmounts()).to.eq(beforeTotalAmount.add(amount))
+        expect(await compound.totalAmount()).to.eq(beforeTotalAmount.add(amount))
     }
 
     it("mint", async () => {
         const amount = expandTo18Decimals(256)
 
-        await expect(compound.mint(0, wallet.address)).to.be.revertedWith("Compound: Nothing to deposit")
+        await expect(compound.mint(0, wallet.address)).to.be.revertedWith("Staking: Nothing to deposit")
         await expect(compound.mint(amount, wallet.address)).to.be.revertedWith("ERC20: transfer amount exceeds allowance")
 
-        await compound.toggleRevert();
-        await expect(compound.mint(amount, wallet.address)).to.be.revertedWith("Compound: reverted flag on.")
-        await compound.toggleRevert();
+        await compound.togglePause();
+        await expect(compound.mint(amount, wallet.address)).to.be.revertedWith("Staking: contract paused.")
+        await compound.togglePause();
         await mint(wallet.address, amount)
 
         await fillUpCompound();
@@ -203,7 +169,7 @@ describe("Compound", () => {
     })
 
     async function burn(user: Wallet, amount: BigNumberish) {
-        const totalAmountsBefore = await compound.totalAmounts()
+        const totalAmountsBefore = await compound.totalAmount()
         const currentAccRewPerShare = await compound.accumulatedRewardPerShare()
         const stateBefore = await compound.userInfo(user.address);
 
@@ -217,24 +183,23 @@ describe("Compound", () => {
         expect(state.amount).to.eq(stateBefore.amount.sub(amount))
         expect(state.accumulatedReward).to.eq(stateBefore.accumulatedReward.add(rewardEarn))
         expect(state.rewardDebt).to.eq(rewardDebt)
-        expect(await compound.totalAmounts()).to.eq(totalAmountsBefore.sub(amount))
+        expect(await compound.totalAmount()).to.eq(totalAmountsBefore.sub(amount))
         expect(await compound.accumulatedRewardPerShare()).to.eq(currentAccRewPerShare.add(updateARPS))
     }
     it("burn", async () => {
         await fillUpCompound();
 
         const amount = expandTo18Decimals(115)
-        const period = 50
         await gton.approve(compound.address, amount)
 
         await compound.mint(amount, wallet.address)
-        await mineBlocks(waffle.provider, period)
-        await expect(compound.burn(wallet.address, 0)).to.be.revertedWith("Compound: Nothing to burn")
-        await expect(compound.burn(wallet.address, amount.add(1))).to.be.revertedWith("Compound: Insufficient share")
 
-        await compound.toggleRevert();
-        await expect(compound.burn(wallet.address, amount)).to.be.revertedWith("Compound: reverted flag on.")
-        await compound.toggleRevert();
+        await expect(compound.burn(wallet.address, 0)).to.be.revertedWith("Staking: Nothing to burn")
+        await expect(compound.burn(wallet.address, amount.add(1))).to.be.revertedWith("Staking: Insufficient share")
+
+        await compound.togglePause();
+        await expect(compound.burn(wallet.address, amount)).to.be.revertedWith("Staking: contract paused.")
+        await compound.togglePause();
 
         await gton.transfer(compound.address, await gton.balanceOf(wallet.address));
 
@@ -242,25 +207,50 @@ describe("Compound", () => {
 
     })
 
+    async function harvest(user: Wallet, amount: BigNumberish) {
+        await gton.approve(compound.address, amount)
+        await compound.mint(amount, user.address)
+        const lastTS = (await waffle.provider.getBlock("latest")).timestamp
+        await setTimestamp(waffle.provider, lastTS + time.year)
+        
+        const stateBefore = await compound.userInfo(user.address);
+        const currentAccRewPerShare = await compound.accumulatedRewardPerShare()
+        const updateARPS = await updateDelta()
+        const rewardEarn = currentAccRewPerShare.add(updateARPS).mul(stateBefore.amount).div(calcDecimals).sub(stateBefore.rewardDebt);
+        const rewardDebt = currentAccRewPerShare.add(updateARPS).mul(stateBefore.amount).div(calcDecimals);
+
+        await compound.connect(user).harvest(rewardEarn)
+        const stateAfter = await compound.userInfo(user.address)
+        expect(stateAfter.lastHarvestTimestamp).to.eq((await waffle.provider.getBlock("latest")).timestamp)
+        expect(stateAfter.accumulatedReward).to.eq(0)
+        expect(stateAfter.rewardDebt).to.eq(rewardDebt)
+        expect(await gton.balanceOf(user.address)).to.eq(rewardEarn)
+    }
+
     it("harvest", async () => {
         await fillUpCompound();
 
         const amount = expandTo18Decimals(115)
-        const period = 50
+
+        await expect(compound.harvest(0)).to.be.revertedWith("Staking: Nothing to harvest")
+        await expect(compound.harvest(amount.add(1))).to.be.revertedWith("Staking: Insufficient to harvest")
+
+        await compound.togglePause();
+        await expect(compound.harvest(amount)).to.be.revertedWith("Staking: contract paused.")
+        await compound.togglePause();
+
+        await gton.transfer(compound.address, amount); // so staking can transfer rewards
+
+
         await gton.approve(compound.address, amount)
+        await compound.mint(amount, bob.address)
 
-        await compound.mint(amount, wallet.address)
-        await mineBlocks(waffle.provider, period)
-        await expect(compound.burn(wallet.address, 0)).to.be.revertedWith("Compound: Nothing to burn")
-        await expect(compound.burn(wallet.address, amount.add(1))).to.be.revertedWith("Compound: Insufficient share")
+        const lastTS = (await waffle.provider.getBlock("latest")).timestamp
+        await setTimestamp(waffle.provider, lastTS+time.month)
+        await compound.connect(bob).harvest(1)
+        await expect(compound.connect(bob).harvest(1)).to.be.revertedWith("Staking: less than 24 hours since last harvest")
 
-        await compound.toggleRevert();
-        await expect(compound.burn(wallet.address, amount)).to.be.revertedWith("Compound: reverted flag on.")
-        await compound.toggleRevert();
-
-        await gton.transfer(compound.address, await gton.balanceOf(wallet.address));
-
-        await burn(wallet, amount.sub(15))
+        await harvest(admin0, amount)
 
     })
 
@@ -302,9 +292,9 @@ describe("Compound", () => {
         const balance = await compound.balanceOf(wallet.address)
         await expect(compound.transfer(other.address, balance.add(expandTo18Decimals(100)))).to.be.revertedWith("ERC20: transfer amount exceeds balance")
 
-        await compound.toggleRevert();
-        await expect(compound.transfer(other.address, balance)).to.be.revertedWith("Compound: reverted flag on.")
-        await compound.toggleRevert();
+        await compound.togglePause();
+        await expect(compound.transfer(other.address, balance)).to.be.revertedWith("Staking: contract paused.")
+        await compound.togglePause();
 
         await transfer(wallet, other.address, amount.sub(65))
     })
@@ -314,9 +304,9 @@ describe("Compound", () => {
         const secondAmount = BigNumber.from("1000000")
         expect(await compound.allowance(wallet.address, bob.address)).to.eq(0)
 
-        await compound.toggleRevert();
-        await expect(compound.approve(alice.address, amount)).to.be.revertedWith("Compound: reverted flag on.")
-        await compound.toggleRevert();
+        await compound.togglePause();
+        await expect(compound.approve(alice.address, amount)).to.be.revertedWith("Staking: contract paused.")
+        await compound.togglePause();
 
         // await expect(compound.approve(wallet.address, 0)).to.be.revertedWith("ERC20: approve to the zero address")
         await compound.approve(alice.address, amount)
@@ -333,9 +323,9 @@ describe("Compound", () => {
         await mineBlocks(waffle.provider, 10)
         await expect(compound.connect(bob).transferFrom(wallet.address, bob.address, 15)).to.be.revertedWith("ERC20: transfer amount exceeds allowance")
 
-        await compound.toggleRevert();
-        await expect(compound.transferFrom(wallet.address, bob.address, 15)).to.be.revertedWith("Compound: reverted flag on.")
-        await compound.toggleRevert();
+        await compound.togglePause();
+        await expect(compound.transferFrom(wallet.address, bob.address, 15)).to.be.revertedWith("Staking: contract paused.")
+        await compound.togglePause();
 
         const transferAmount = (await compound.balanceOf(wallet.address)).div(2) // half of the amount
         await compound.approve(bob.address, transferAmount)
@@ -371,12 +361,11 @@ describe("Compound", () => {
     context("Apy checking", function () {
 
         async function checkUserApy(user: Wallet, period: number, rounding: boolean = false) {
-            const apyN = await compound.apyNominator()
-            const apyD = await compound.apyDenominator()
+            const apr = await compound.aprBasisPoints()
             const userState = await compound.userInfo(user.address);
             const lastTS = BigNumber.from((await waffle.provider.getBlock("latest")).timestamp)
             const stake = userState.amount;
-            const yearEarn = stake.mul(apyN).div(apyD);
+            const yearEarn = stake.mul(apr).div(10000);
             const earn = yearEarn.mul(period).div(time.year)
             const balanceBefore = await compound.balanceOf(user.address)
             await setTimestamp(waffle.provider, lastTS.add(period).toNumber())
@@ -390,7 +379,7 @@ describe("Compound", () => {
         it("After year APY of each user should be correct and APY of all sc the same", async () => {
             await fillUpCompound()
             for (const i of updRewardData) {
-                await compound.setApy(i.apyNominator, i.apyDenominator)
+                await compound.setApr(i.apr)
                 await gton.approve(compound.address, i.amount);
                 await compound.mint(i.amount, i.user.address)
                 await checkUserApy(i.user, time.year)
@@ -401,7 +390,7 @@ describe("Compound", () => {
             await fillUpCompound()
             for (const period of Object.values(time)) {
                 for (const i of updRewardData) {
-                    await compound.setApy(i.apyNominator, i.apyDenominator)
+                    await compound.setApr(i.apr)
                     await gton.approve(compound.address, i.amount);
                     await compound.mint(i.amount, i.user.address)
                     await checkUserApy(i.user, period, true)
@@ -418,7 +407,7 @@ describe("Compound", () => {
             await compound.mint(fedorAmount, fedor.address)
             await checkUserApy(fedor, time.halfYear, true)
             
-            await compound.setApy("150000", "1000000") // balance update here
+            await compound.setApr("1500") // balance update here
 
             await gton.approve(compound.address, fedorAmount)
             await compound.mint(fedorAmount, alice.address)
