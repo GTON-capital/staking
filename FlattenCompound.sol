@@ -1,8 +1,74 @@
+// Sources flattened with hardhat v2.8.2 https://hardhat.org
+
+// File contracts/interfaces/IERC20.sol
+
+// SPDX-License-Identifier: MIT
+pragma solidity >=0.8.0;
+
+interface IERC20 {
+    function totalSupply() external view returns (uint256);
+    function decimals() external view returns (uint256);
+    function name() external view returns (string memory);
+    function symbol() external view returns (string memory);
+    function balanceOf(address account) external view returns (uint256);
+    function allowance(address owner, address spender) external view returns (uint256);
+    function approve(address spender, uint256 amount) external returns (bool);
+    event Transfer(address indexed from, address indexed to, uint256 value);
+    event Approval(address indexed owner, address indexed spender, uint256 value);
+    function transferFrom(address _from, address _to, uint256 _value) external returns (bool success);
+    function transfer(address _to, uint256 _value) external returns (bool success);
+}
+
+
+// File contracts/libraries/AddressArrayLibrary.sol
+
+
+pragma solidity >=0.8.0;
+
+library AddressArrayLib {
+
+    function removeItem(
+        address[] storage array,
+        address a
+    ) internal {
+        int i = indexOf(array, a);
+        require(i != -1, "ARRAY_LIB: Element doesn't exist");
+        remove(array, uint(i));
+    }
+
+    function remove(      
+        address[] storage array,
+        uint index
+    ) internal {
+        require(index <= array.length, "ARRAY_LIB: Index does not exist");
+        array[index] = array[array.length-1];
+        array.pop();
+    }
+
+
+    // probably not the best way to find index
+    function indexOf(
+        address[] storage array,
+        address a
+    ) internal view returns (int) {
+        if (array.length == 0) return int(-1); // we want to continue txn process
+        for(uint i=0; i<array.length; i++) {
+            if (array[i] == a) {
+                return int(i);
+            }
+        }
+        return int(-1);
+    }
+}
+
+
+// File contracts/CompoundStaking.sol
+
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.8;
 
-import "./interfaces/IERC20.sol";
-import "./libraries/AddressArrayLibrary.sol";
+
+//import "hardhat/console.sol";
 
 contract CompoundStaking is IERC20 {
     string public name;
@@ -122,11 +188,10 @@ contract CompoundStaking is IERC20 {
 
     function toggleRevert() public onlyOwner {
         revertFlag = !revertFlag;
-        emit RevertFlag(revertFlag);
     }
 
     function withdrawToken(IERC20 _token, address _to, uint _amount) public onlyOwner {
-        require(_token.transfer(_to,_amount));
+            require(_token.transfer(_to,_amount));
     }
 
     function transferOwnership(address _owner) public onlyOwner {
