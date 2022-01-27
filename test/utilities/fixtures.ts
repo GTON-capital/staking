@@ -22,12 +22,13 @@ export const compoundFixture: Fixture<CompoundFixture> = async function ([
     const compoundF = await ethers.getContractFactory("CompoundStaking")
     const compound = (await compoundF.deploy(
         gton.address,
-        BigNumber.from("100000"),
         "sGTON",
         "sGTON",
         140,
         15,
-        [admin0.address, admin1.address])
+        [admin0.address, admin1.address],
+        86400, // seconds in day
+        )
     ) as CompoundStaking
     return {
         gton,

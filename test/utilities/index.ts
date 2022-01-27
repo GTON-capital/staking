@@ -18,4 +18,15 @@ export async function mineBlocks(provider: any, blocks: number): Promise<void> {
   }
 } 
 
+export async function setTimestamp(provider: any, timestamp: number): Promise<void> {
+  await provider.send("evm_mine", [timestamp])
+} 
+
+export const time = {
+  day: 60*60*24,
+  year: 31557600,
+  halfYear: 15778800,
+  month: 2629800,
+}
+
 export * from "./time"

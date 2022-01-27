@@ -11,23 +11,22 @@ contract CompoundStaking is IERC20 {
     address public owner;
     
     bool public revertFlag;
-    uint public totalShares;
-    uint public potentiallyMinted;
     uint public lastRewardTimestamp;
 
-    uint public accamulatedRewardPerShare;
+    uint public accumulatedRewardPerShare;
     uint public totalAmounts;
     uint public harvestInterval;
  
-    uint public apyUp;
-    uint public apyDown;
+    uint public apyNominator;
+    uint public apyDenominator;
+    uint public calcDecimals = 1e12;
     uint public decimals;
-    address[] public lpAdmins;
+    address[] public admins;
 
     struct UserInfo {
         uint amount;
         uint rewardDebt;
-        uint accamulatedReward;
+        uint accumulatedReward;
         uint lastHarvestTimestamp;
     }
 
@@ -39,9 +38,9 @@ contract CompoundStaking is IERC20 {
         IERC20 _token,
         string memory _name,
         string memory _symbol,
-        uint _apyUp,
-        uint _apyDown,
-        address[] memory admins,
+        uint _apyNominator,
+        uint _apyDenominator,
+        address[] memory _admins,
         uint _harvestInterval
     ) {
         harvestInterval = _harvestInterval;
@@ -51,9 +50,9 @@ contract CompoundStaking is IERC20 {
         decimals = token.decimals();
         name = _name;
         symbol = _symbol;
-        apyUp = _apyUp;
-        apyDown = _apyDown;
-        lpAdmins = admins;
+        apyNominator = _apyNominator;
+        apyDenominator = _apyDenominator;
+        admins = _admins;
     }
 
     modifier notReverted() {
@@ -67,7 +66,7 @@ contract CompoundStaking is IERC20 {
     }
 
     modifier onlyAdmin() {
-        require(msg.sender==owner || AddressArrayLib.indexOf(lpAdmins, msg.sender) != -1, 
+        require(msg.sender==owner || AddressArrayLib.indexOf(admins, msg.sender) != -1, 
             "Compound: permitted to admins only.");
         _;
     }
@@ -77,38 +76,39 @@ contract CompoundStaking is IERC20 {
     event SetApy(uint oldDown, uint oldUp, uint newDown, uint newUp);
     event SetBlockInYear(uint oldBlocksInYear, uint newBlocksInYear);
     
-    // just return total in staking amount 
     function totalSupply() public view returns (uint256) {
-        //uint delta = block.timestamp - lastRewardTimestamp;
-        //uint viewAcc = accamulatedRewardPerShare + (totalAmounts * delta * apyUp / apyDown / 31557600);
         return  totalAmounts; 
     }
 
     function balanceOf(address _user) public view returns(uint) {
         UserInfo storage user = userInfo[_user];
-        uint acc = accamulatedRewardPerShare * user.amount - user.rewardDebt;
-        return user.accamulatedReward + acc + user.amount;
+        uint delta = block.timestamp - lastRewardTimestamp;
+        uint updAccumulatedRewardPerShare = 
+            (delta * apyNominator * calcDecimals / apyDenominator / 31557600) + accumulatedRewardPerShare;
+
+        uint acc = updAccumulatedRewardPerShare * user.amount / calcDecimals - user.rewardDebt;
+        return user.accumulatedReward + acc + user.amount;
     }
 
-    function setAdmins(address[] memory admins) public onlyOwner {
-        for(uint i = 0; i < admins.length; i++) {
-            lpAdmins.push(admins[i]);
+    function setAdmins(address[] memory _admins) public onlyOwner {
+        for(uint i = 0; i < _admins.length; i++) {
+            admins.push(_admins[i]);
         }
     }
 
-    function removeAdmins(address[] memory admins) public onlyOwner {
-        for(uint i = 0; i < admins.length; i++) {
-            AddressArrayLib.removeItem(lpAdmins, admins[i]);
+    function removeAdmins(address[] memory _admins) public onlyOwner {
+        for(uint i = 0; i < _admins.length; i++) {
+            AddressArrayLib.removeItem(admins, _admins[i]);
         }
     }
 
-    function setApy(uint _apyUp, uint _apyDown) public onlyAdmin {
+    function setApy(uint _apyNominator, uint _apyDenominator) public onlyAdmin {
         updateRewardPool();
-        uint oldDown = apyDown;
-        uint oldUp = apyUp;
-        apyUp = _apyUp;
-        apyDown = _apyDown;
-        emit SetApy(oldDown, oldUp, _apyDown, _apyUp);
+        uint oldDown = apyDenominator;
+        uint oldUp = apyNominator;
+        apyNominator = _apyNominator;
+        apyDenominator = _apyDenominator;
+        emit SetApy(oldDown, oldUp, _apyDenominator, _apyNominator);
     }
 
     function toggleRevert() public onlyOwner {
@@ -154,18 +154,20 @@ contract CompoundStaking is IERC20 {
         updateRewardPool();
         require(_sender != address(0), "ERC20: transfer from the zero address");
         require(_recipient != address(0), "ERC20: transfer to the zero address");
-
+        
         UserInfo storage sender = userInfo[_sender];
         UserInfo storage recipient = userInfo[_recipient];
+        require(_amount <= sender.amount, "ERC20: transfer amount exceeds balance");
+        // updating balances
+        sender.accumulatedReward += accumulatedRewardPerShare * sender.amount / calcDecimals - sender.rewardDebt;
+        recipient.accumulatedReward += accumulatedRewardPerShare * recipient.amount / calcDecimals - recipient.rewardDebt;
 
-        sender.accamulatedReward += accamulatedRewardPerShare * sender.amount - sender.rewardDebt;
-        recipient.accamulatedReward += accamulatedRewardPerShare * recipient.amount - recipient.rewardDebt;
-
+        // transfering amounts
         sender.amount -= _amount;
         recipient.amount += _amount;
 
-        sender.rewardDebt = accamulatedRewardPerShare * sender.amount;
-        recipient.rewardDebt = accamulatedRewardPerShare * recipient.amount;
+        sender.rewardDebt = accumulatedRewardPerShare * sender.amount / calcDecimals;
+        recipient.rewardDebt = accumulatedRewardPerShare * recipient.amount / calcDecimals;
 
         emit Transfer(_sender, _recipient, _amount);
     }
@@ -191,7 +193,7 @@ contract CompoundStaking is IERC20 {
 
     function updateRewardPool() public notReverted {
         uint delta = block.timestamp - lastRewardTimestamp;
-        accamulatedRewardPerShare +=  totalAmounts * delta * apyUp / apyDown / 31557600;
+        accumulatedRewardPerShare +=  delta * apyNominator * calcDecimals / apyDenominator / 31557600;
         lastRewardTimestamp = block.timestamp;
     }
 
@@ -201,25 +203,27 @@ contract CompoundStaking is IERC20 {
         require(token.transferFrom(msg.sender,address(this),_amount),"");
 
         UserInfo storage user = userInfo[_to];
-        user.accamulatedReward += accamulatedRewardPerShare * user.amount - user.rewardDebt;
+        user.accumulatedReward += accumulatedRewardPerShare * user.amount / calcDecimals - user.rewardDebt;
         totalAmounts += _amount;
         user.amount += _amount;
-        user.rewardDebt = accamulatedRewardPerShare * user.amount;
+        user.rewardDebt = accumulatedRewardPerShare * user.amount / calcDecimals;
     }
 
     function harvest(uint256 _amount) public notReverted {
         updateRewardPool();
         UserInfo storage user = userInfo[msg.sender];
-        // +1 to prevent efforts in scum of tstamp
-        require(user.lastHarvestTimestamp + harvestInterval + 1 > block.timestamp || 
-            user.lastHarvestTimestamp == 0,"not so fast");
+        require(user.lastHarvestTimestamp + harvestInterval >= block.timestamp || 
+            user.lastHarvestTimestamp == 0,"Compound: less than 24 hours since last harvest");
         user.lastHarvestTimestamp = block.timestamp;
 
-        user.accamulatedReward += accamulatedRewardPerShare * user.amount - user.rewardDebt;
+        user.accumulatedReward += accumulatedRewardPerShare * user.amount / calcDecimals - user.rewardDebt;
+        user.rewardDebt += accumulatedRewardPerShare * user.amount / calcDecimals;
+
         require(_amount > 0, "Compound: Nothing to harvest");
-        require(_amount <= user.accamulatedReward, "Compound: isufficient to harvest");
-        user.accamulatedReward -= _amount;
-        require(token.transfer(msg.sender,_amount),"");
+        require(_amount <= user.accumulatedReward, "Compound: isufficient to harvest");
+        user.accumulatedReward -= _amount;
+
+        require(token.transfer(msg.sender,_amount),"Compound: error transfer from");
     }
 
     function burn(address _to, uint256 _amount) public notReverted {
@@ -227,10 +231,11 @@ contract CompoundStaking is IERC20 {
         require(_amount > 0, "Compound: Nothing to burn");
 
         UserInfo storage user = userInfo[msg.sender];
-        user.accamulatedReward += accamulatedRewardPerShare * user.amount - user.rewardDebt;
+        require(_amount <= user.amount, "Compound: Insufficient share");
+        user.accumulatedReward += accumulatedRewardPerShare * user.amount / calcDecimals - user.rewardDebt;
         totalAmounts -= _amount;
         user.amount -= _amount;
-        user.rewardDebt = accamulatedRewardPerShare * user.amount;
+        user.rewardDebt = accumulatedRewardPerShare * user.amount / calcDecimals;
 
         require(token.transfer(_to,_amount),"Compound: Not enough token to transfer");
     }
