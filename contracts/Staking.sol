@@ -4,24 +4,22 @@ pragma solidity 0.8.8;
 import "./interfaces/IERC20.sol";
 import "./libraries/AddressArrayLibrary.sol";
 
-contract CompoundStaking is IERC20 {
+contract Staking is IERC20, IERC20Metadata {
     string public name;
     string public symbol;
 
     address public owner;
     
-    bool public revertFlag;
-    uint public totalShares;
-    uint public potentiallyMinted;
+    bool public paused;
     uint public lastRewardTimestamp;
 
     uint public accamulatedRewardPerShare;
-    uint public totalAmounts;
+    uint public totalAmount;
     uint public harvestInterval;
  
-    uint public apyUp;
-    uint public apyDown;
-    uint public decimals;
+    uint public aprBasisPoints;
+
+    uint8 public decimals;
     address[] public lpAdmins;
 
     struct UserInfo {
@@ -39,49 +37,44 @@ contract CompoundStaking is IERC20 {
         IERC20 _token,
         string memory _name,
         string memory _symbol,
-        uint _apyUp,
-        uint _apyDown,
+        uint _aprBasisPoints,
         address[] memory admins,
         uint _harvestInterval
     ) {
-        harvestInterval = _harvestInterval;
-        owner = msg.sender;
         token = _token;
-        lastRewardTimestamp = block.timestamp;
-        decimals = token.decimals();
         name = _name;
         symbol = _symbol;
-        apyUp = _apyUp;
-        apyDown = _apyDown;
+        aprBasisPoints = _aprBasisPoints;
         lpAdmins = admins;
+        harvestInterval = _harvestInterval;
+        owner = msg.sender;
+        lastRewardTimestamp = block.timestamp;
+        decimals = IERC20Metadata(address(_token)).decimals();
     }
 
-    modifier notReverted() {
-        require(!revertFlag, "Compound: reverted flag on.");
+    modifier whenNotPaused() {
+        require(!paused, "Staking: contract paused.");
         _;
     }
 
     modifier onlyOwner() {
-        require(msg.sender == owner, "Compound: permitted to owner only.");
+        require(msg.sender == owner, "Staking: permitted to owner only.");
         _;
     }
 
     modifier onlyAdmin() {
         require(msg.sender==owner || AddressArrayLib.indexOf(lpAdmins, msg.sender) != -1, 
-            "Compound: permitted to admins only.");
+            "Staking: permitted to admins only.");
         _;
     }
 
-    event RevertFlag(bool flag);
+    event Pause(bool flag);
     event SetOwner(address oldOwner, address newOwner);
-    event SetApy(uint oldDown, uint oldUp, uint newDown, uint newUp);
-    event SetBlockInYear(uint oldBlocksInYear, uint newBlocksInYear);
-    
+    event SetApr(uint oldBasisPoints, uint newBasisPoints);
+
     // just return total in staking amount 
     function totalSupply() public view returns (uint256) {
-        //uint delta = block.timestamp - lastRewardTimestamp;
-        //uint viewAcc = accamulatedRewardPerShare + (totalAmounts * delta * apyUp / apyDown / 31557600);
-        return  totalAmounts; 
+        return totalAmount; 
     }
 
     function balanceOf(address _user) public view returns(uint) {
@@ -102,18 +95,16 @@ contract CompoundStaking is IERC20 {
         }
     }
 
-    function setApy(uint _apyUp, uint _apyDown) public onlyAdmin {
+    function setApr(uint _aprBasisPoints) public onlyAdmin {
         updateRewardPool();
-        uint oldDown = apyDown;
-        uint oldUp = apyUp;
-        apyUp = _apyUp;
-        apyDown = _apyDown;
-        emit SetApy(oldDown, oldUp, _apyDown, _apyUp);
+        uint oldAprBasisPoints = aprBasisPoints;
+        aprBasisPoints = _aprBasisPoints;
+        emit SetApr(oldAprBasisPoints, aprBasisPoints);
     }
 
-    function toggleRevert() public onlyOwner {
-        revertFlag = !revertFlag;
-        emit RevertFlag(revertFlag);
+    function togglePause() public onlyOwner {
+        paused = !paused;
+        emit Pause(paused);
     }
 
     function withdrawToken(IERC20 _token, address _to, uint _amount) public onlyOwner {
@@ -141,7 +132,7 @@ contract CompoundStaking is IERC20 {
         emit Approval(_owner, spender, amount);
     }
 
-    function approve(address spender, uint amount) public notReverted virtual override returns (bool) {
+    function approve(address spender, uint amount) public whenNotPaused virtual override returns (bool) {
         _approve(msg.sender, spender, amount);
         return true;
     }
@@ -170,7 +161,7 @@ contract CompoundStaking is IERC20 {
         emit Transfer(_sender, _recipient, _amount);
     }
 
-    function transfer(address recipient, uint256 amount) public notReverted virtual override returns (bool) {
+    function transfer(address recipient, uint256 amount) public whenNotPaused virtual override returns (bool) {
         updateRewardPool();
         _transfer(msg.sender, recipient, amount);
         return true;
@@ -180,7 +171,7 @@ contract CompoundStaking is IERC20 {
         address spender,
         address recipient,
         uint256 amount
-    ) public notReverted virtual override returns (bool) {
+    ) public whenNotPaused virtual override returns (bool) {
         updateRewardPool();
         _transfer(spender, recipient, amount);
         uint256 currentAllowance = allowances[spender][msg.sender];
@@ -189,49 +180,49 @@ contract CompoundStaking is IERC20 {
         return true;
     }
 
-    function updateRewardPool() public notReverted {
+    function updateRewardPool() public whenNotPaused {
         uint delta = block.timestamp - lastRewardTimestamp;
-        accamulatedRewardPerShare +=  totalAmounts * delta * apyUp / apyDown / 31557600;
+        accamulatedRewardPerShare += totalAmount * delta * aprBasisPoints / 10000 / 31557600;
         lastRewardTimestamp = block.timestamp;
     }
 
-    function mint(uint _amount, address _to) external notReverted {
+    function mint(uint _amount, address _to) external whenNotPaused {
         updateRewardPool();
-        require(_amount > 0, "Compound: Nothing to deposit");
+        require(_amount > 0, "Staking: Nothing to deposit");
         require(token.transferFrom(msg.sender,address(this),_amount),"");
 
         UserInfo storage user = userInfo[_to];
         user.accamulatedReward += accamulatedRewardPerShare * user.amount - user.rewardDebt;
-        totalAmounts += _amount;
+        totalAmount += _amount;
         user.amount += _amount;
         user.rewardDebt = accamulatedRewardPerShare * user.amount;
     }
 
-    function harvest(uint256 _amount) public notReverted {
+    function harvest(uint256 _amount) public whenNotPaused {
         updateRewardPool();
         UserInfo storage user = userInfo[msg.sender];
         // +1 to prevent efforts in scum of tstamp
         require(user.lastHarvestTimestamp + harvestInterval + 1 > block.timestamp || 
-            user.lastHarvestTimestamp == 0,"not so fast");
+            user.lastHarvestTimestamp == 0, "not so fast");
         user.lastHarvestTimestamp = block.timestamp;
 
         user.accamulatedReward += accamulatedRewardPerShare * user.amount - user.rewardDebt;
-        require(_amount > 0, "Compound: Nothing to harvest");
-        require(_amount <= user.accamulatedReward, "Compound: isufficient to harvest");
+        require(_amount > 0, "Staking: Nothing to harvest");
+        require(_amount <= user.accamulatedReward, "Staking: isufficient to harvest");
         user.accamulatedReward -= _amount;
         require(token.transfer(msg.sender,_amount),"");
     }
 
-    function burn(address _to, uint256 _amount) public notReverted {
+    function burn(address _to, uint256 _amount) public whenNotPaused {
         updateRewardPool();
-        require(_amount > 0, "Compound: Nothing to burn");
+        require(_amount > 0, "Staking: Nothing to burn");
 
         UserInfo storage user = userInfo[msg.sender];
         user.accamulatedReward += accamulatedRewardPerShare * user.amount - user.rewardDebt;
-        totalAmounts -= _amount;
+        totalAmount -= _amount;
         user.amount -= _amount;
         user.rewardDebt = accamulatedRewardPerShare * user.amount;
 
-        require(token.transfer(_to,_amount),"Compound: Not enough token to transfer");
+        require(token.transfer(_to,_amount),"Staking: Not enough token to transfer");
     }
 }
