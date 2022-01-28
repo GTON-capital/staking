@@ -70,16 +70,20 @@ contract Staking is IERC20, IERC20Metadata {
     }
 
     function rewardPerSecond() public view returns (uint) {
-        return aprBasisPoints * calcDecimals / 10000 / secondsInYear;
+        return delta() * aprBasisPoints * calcDecimals / 10000 / secondsInYear;
     }
 
     function delta() internal view returns (uint) {
         return block.timestamp - lastRewardTimestamp;
     }
 
+    function calculateRewardAmount(uint amount) internal view returns (uint) {
+        return accumulatedRewardPerShare * amount / calcDecimals;
+    }
+
     function balanceOf(address _user) public view returns(uint) {
         UserInfo storage user = userInfo[_user];
-        uint updAccumulatedRewardPerShare = (delta() * rewardPerSecond()) + accumulatedRewardPerShare;
+        uint updAccumulatedRewardPerShare = rewardPerSecond() + accumulatedRewardPerShare;
 
         uint acc = updAccumulatedRewardPerShare * user.amount / calcDecimals - user.rewardDebt;
         return user.accumulatedReward + acc + user.amount;
@@ -140,15 +144,15 @@ contract Staking is IERC20, IERC20Metadata {
         UserInfo storage recipient = userInfo[_recipient];
         require(_amount <= sender.amount, "ERC20: transfer amount exceeds balance");
         // updating balances
-        sender.accumulatedReward += accumulatedRewardPerShare * sender.amount / calcDecimals - sender.rewardDebt;
-        recipient.accumulatedReward += accumulatedRewardPerShare * recipient.amount / calcDecimals - recipient.rewardDebt;
+        sender.accumulatedReward += calculateRewardAmount(sender.amount) - sender.rewardDebt;
+        recipient.accumulatedReward += calculateRewardAmount(recipient.amount) - recipient.rewardDebt;
 
         // transfering amounts
         sender.amount -= _amount;
         recipient.amount += _amount;
 
-        sender.rewardDebt = accumulatedRewardPerShare * sender.amount / calcDecimals;
-        recipient.rewardDebt = accumulatedRewardPerShare * recipient.amount / calcDecimals;
+        sender.rewardDebt = calculateRewardAmount(sender.amount);
+        recipient.rewardDebt = calculateRewardAmount(recipient.amount);
 
         emit Transfer(_sender, _recipient, _amount);
     }
@@ -173,12 +177,8 @@ contract Staking is IERC20, IERC20Metadata {
     }
 
     function updateRewardPool() public whenNotPaused {
-        accumulatedRewardPerShare +=  delta() * rewardPerSecond();
+        accumulatedRewardPerShare +=  rewardPerSecond();
         lastRewardTimestamp = block.timestamp;
-    }
-
-    function calculateRewardAmount(uint amount) internal view returns (uint) {
-        return accumulatedRewardPerShare * amount / calcDecimals;
     }
 
     function mint(uint _amount, address _to) external whenNotPaused {
