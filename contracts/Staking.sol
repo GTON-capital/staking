@@ -4,6 +4,9 @@ pragma solidity 0.8.8;
 import "./interfaces/IERC20.sol";
 
 contract Staking is IERC20, IERC20Metadata {
+
+    uint public calcDecimals = 1e12;
+    uint public secondsInYear = 31557600;
     string public name;
     string public symbol;
 
@@ -15,7 +18,6 @@ contract Staking is IERC20, IERC20Metadata {
     uint public accumulatedRewardPerShare;
     uint public totalAmount;
     uint public harvestInterval;
-    uint public calcDecimals = 1e12;
     uint public aprBasisPoints;
 
     uint8 public decimals;
@@ -67,11 +69,17 @@ contract Staking is IERC20, IERC20Metadata {
         return totalAmount; 
     }
 
+    function rewardPerSecond() public view returns (uint) {
+        return aprBasisPoints * calcDecimals / 10000 / secondsInYear;
+    }
+
+    function delta() internal view returns (uint) {
+        return block.timestamp - lastRewardTimestamp;
+    }
+
     function balanceOf(address _user) public view returns(uint) {
         UserInfo storage user = userInfo[_user];
-        uint delta = block.timestamp - lastRewardTimestamp;
-        uint updAccumulatedRewardPerShare = 
-            (delta * aprBasisPoints * calcDecimals / 10000 / 31557600) + accumulatedRewardPerShare;
+        uint updAccumulatedRewardPerShare = (delta() * rewardPerSecond()) + accumulatedRewardPerShare;
 
         uint acc = updAccumulatedRewardPerShare * user.amount / calcDecimals - user.rewardDebt;
         return user.accumulatedReward + acc + user.amount;
@@ -165,9 +173,12 @@ contract Staking is IERC20, IERC20Metadata {
     }
 
     function updateRewardPool() public whenNotPaused {
-        uint delta = block.timestamp - lastRewardTimestamp;
-        accumulatedRewardPerShare +=  delta * aprBasisPoints * calcDecimals / 10000 / 31557600;
+        accumulatedRewardPerShare +=  delta() * rewardPerSecond();
         lastRewardTimestamp = block.timestamp;
+    }
+
+    function calculateRewardAmount(uint amount) internal view returns (uint) {
+        return accumulatedRewardPerShare * amount / calcDecimals;
     }
 
     function mint(uint _amount, address _to) external whenNotPaused {
@@ -176,10 +187,10 @@ contract Staking is IERC20, IERC20Metadata {
         require(token.transferFrom(msg.sender,address(this),_amount),"");
 
         UserInfo storage user = userInfo[_to];
-        user.accumulatedReward += accumulatedRewardPerShare * user.amount / calcDecimals - user.rewardDebt;
+        user.accumulatedReward += calculateRewardAmount(user.amount) - user.rewardDebt;
         totalAmount += _amount;
         user.amount += _amount;
-        user.rewardDebt = accumulatedRewardPerShare * user.amount / calcDecimals;
+        user.rewardDebt = calculateRewardAmount(user.amount);
     }
 
     function harvest(uint256 _amount) public whenNotPaused {
@@ -190,8 +201,8 @@ contract Staking is IERC20, IERC20Metadata {
             user.lastHarvestTimestamp == 0, "Staking: less than 24 hours since last harvest");
         user.lastHarvestTimestamp = block.timestamp;
 
-        user.accumulatedReward += accumulatedRewardPerShare * user.amount / calcDecimals - user.rewardDebt;
-        user.rewardDebt = accumulatedRewardPerShare * user.amount / calcDecimals;
+        user.accumulatedReward += calculateRewardAmount(user.amount) - user.rewardDebt;
+        user.rewardDebt = calculateRewardAmount(user.amount);
 
         require(_amount > 0, "Staking: Nothing to harvest");
         require(_amount <= user.accumulatedReward, "Staking: Insufficient to harvest");
@@ -205,10 +216,10 @@ contract Staking is IERC20, IERC20Metadata {
 
         UserInfo storage user = userInfo[msg.sender];
         require(_amount <= user.amount, "Staking: Insufficient share");
-        user.accumulatedReward += accumulatedRewardPerShare * user.amount / calcDecimals - user.rewardDebt;
+        user.accumulatedReward += calculateRewardAmount(user.amount) - user.rewardDebt;
         totalAmount -= _amount;
         user.amount -= _amount;
-        user.rewardDebt = accumulatedRewardPerShare * user.amount / calcDecimals;
+        user.rewardDebt = calculateRewardAmount(user.amount);
 
         require(token.transfer(_to,_amount),"Staking: Not enough token to transfer");
     }
