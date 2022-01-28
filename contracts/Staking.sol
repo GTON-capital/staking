@@ -11,7 +11,7 @@ contract Staking is IERC20, IERC20Metadata {
     string public symbol;
 
     address public owner;
-    
+
     bool public paused;
     uint public lastRewardTimestamp;
 
@@ -139,7 +139,7 @@ contract Staking is IERC20, IERC20Metadata {
         updateRewardPool();
         require(_sender != address(0), "ERC20: transfer from the zero address");
         require(_recipient != address(0), "ERC20: transfer to the zero address");
-        
+
         UserInfo storage sender = userInfo[_sender];
         UserInfo storage recipient = userInfo[_recipient];
         require(_amount <= sender.amount, "ERC20: transfer amount exceeds balance");
