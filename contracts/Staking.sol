@@ -69,12 +69,9 @@ contract Staking is IERC20, IERC20Metadata {
         return totalAmount; 
     }
 
-    function rewardPerSecond() public view returns (uint) {
-        return delta() * aprBasisPoints * calcDecimals / 10000 / secondsInYear;
-    }
-
-    function delta() internal view returns (uint) {
-        return block.timestamp - lastRewardTimestamp;
+    function lastDeltaReward() public view returns (uint) {
+        uint delta = block.timestamp - lastRewardTimestamp;
+        return delta * aprBasisPoints * calcDecimals / 10000 / secondsInYear;
     }
 
     function calculateRewardAmount(uint amount) internal view returns (uint) {
@@ -83,7 +80,7 @@ contract Staking is IERC20, IERC20Metadata {
 
     function balanceOf(address _user) public view returns(uint) {
         UserInfo storage user = userInfo[_user];
-        uint updAccumulatedRewardPerShare = rewardPerSecond() + accumulatedRewardPerShare;
+        uint updAccumulatedRewardPerShare = lastDeltaReward() + accumulatedRewardPerShare;
 
         uint acc = updAccumulatedRewardPerShare * user.amount / calcDecimals - user.rewardDebt;
         return user.accumulatedReward + acc + user.amount;
@@ -144,6 +141,7 @@ contract Staking is IERC20, IERC20Metadata {
         UserInfo storage recipient = userInfo[_recipient];
         require(_amount <= sender.amount, "ERC20: transfer amount exceeds balance");
         // updating balances
+
         sender.accumulatedReward += calculateRewardAmount(sender.amount) - sender.rewardDebt;
         recipient.accumulatedReward += calculateRewardAmount(recipient.amount) - recipient.rewardDebt;
 
@@ -177,7 +175,7 @@ contract Staking is IERC20, IERC20Metadata {
     }
 
     function updateRewardPool() public whenNotPaused {
-        accumulatedRewardPerShare +=  rewardPerSecond();
+        accumulatedRewardPerShare +=  lastDeltaReward();
         lastRewardTimestamp = block.timestamp;
     }
 
@@ -201,8 +199,9 @@ contract Staking is IERC20, IERC20Metadata {
             user.lastHarvestTimestamp == 0, "Staking: less than 24 hours since last harvest");
         user.lastHarvestTimestamp = block.timestamp;
 
-        user.accumulatedReward += calculateRewardAmount(user.amount) - user.rewardDebt;
-        user.rewardDebt = calculateRewardAmount(user.amount);
+        uint reward = calculateRewardAmount(user.amount);
+        user.accumulatedReward += reward - user.rewardDebt;
+        user.rewardDebt = reward;
 
         require(_amount > 0, "Staking: Nothing to harvest");
         require(_amount <= user.accumulatedReward, "Staking: Insufficient to harvest");
