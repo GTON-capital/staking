@@ -5,23 +5,7 @@ import "./interfaces/IERC20.sol";
 
 contract Staking is IERC20, IERC20Metadata {
 
-    uint public calcDecimals = 1e12;
-    uint public secondsInYear = 31557600;
-    uint public aprDenominator = 10000;
-    string public name;
-    string public symbol;
-
-    address public admin;
-
-    bool public paused;
-    uint public lastRewardTimestamp;
-
-    uint public accumulatedRewardPerShare;
-    uint public amountStaked;
-    uint public harvestInterval;
-    uint public aprBasisPoints;
-
-    uint8 public decimals;
+    /* ========== HELPER STRUCTURES ========== */
 
     struct UserInfo {
         uint amount;
@@ -30,9 +14,34 @@ contract Staking is IERC20, IERC20Metadata {
         uint lastHarvestTimestamp;
     }
 
+    /* ========== CONSTANTS ========== */
+
     IERC20 public immutable token;
+
+    string public name;
+    string public symbol;
+    uint public aprBasisPoints;
+    uint public harvestInterval;
+    uint8 public decimals;
+
+    uint public constant calcDecimals = 1e12;
+    uint public constant secondsInYear = 31557600;
+    uint public constant aprDenominator = 10000;
+
+    /* ========== STATE VARIABLES ========== */
+
+    address public admin;
+
+    bool public paused;
+
+    uint public amountStaked;
+    uint public accumulatedRewardPerShare;
+    uint public lastRewardTimestamp;
+
     mapping(address => UserInfo) public userInfo;
     mapping(address => mapping(address => uint)) public allowances;
+
+    /* ========== CONSTRUCTOR ========== */
 
     constructor(
         IERC20 _token,
@@ -51,21 +60,8 @@ contract Staking is IERC20, IERC20Metadata {
         decimals = IERC20Metadata(address(_token)).decimals();
     }
 
-    modifier whenNotPaused() {
-        require(!paused, "Staking: contract paused.");
-        _;
-    }
+    /* ========== VIEWS ========== */
 
-    modifier onlyAdmin() {
-        require(msg.sender == admin, "Staking: permitted to admin only.");
-        _;
-    }
-
-    event Pause(bool flag);
-    event SetAdmin(address oldAdmin, address newAdmin);
-    event SetApr(uint oldBasisPoints, uint newBasisPoints);
-
-    // just return total in staking amount 
     function totalSupply() public view returns (uint256) {
         return amountStaked; 
     }
@@ -87,31 +83,11 @@ contract Staking is IERC20, IERC20Metadata {
         return user.accumulatedReward + acc + user.amount;
     }
 
-    function setApr(uint _aprBasisPoints) public onlyAdmin {
-        updateRewardPool();
-        uint oldAprBasisPoints = aprBasisPoints;
-        aprBasisPoints = _aprBasisPoints;
-        emit SetApr(oldAprBasisPoints, aprBasisPoints);
-    }
-
-    function togglePause() public onlyAdmin {
-        paused = !paused;
-        emit Pause(paused);
-    }
-
-    function withdrawToken(IERC20 tokenToWithdraw, address to, uint amount) public onlyAdmin {
-        require(tokenToWithdraw.transfer(to,amount));
-    }
-
-    function updateAdmin(address _admin) public onlyAdmin {
-        address oldAdmin = admin;
-        admin = _admin;
-        emit SetAdmin(oldAdmin, _admin);
-    }
-
     function allowance(address owner, address spender) external view returns (uint256) {
         return allowances[owner][spender];
     }
+
+    /* ========== MUTATIVE FUNCTIONS ========== */
 
     function _approve(
         address owner,
@@ -141,12 +117,12 @@ contract Staking is IERC20, IERC20Metadata {
         UserInfo storage sender = userInfo[_sender];
         UserInfo storage recipient = userInfo[_recipient];
         require(amount <= sender.amount, "ERC20: transfer amount exceeds balance");
-        // updating balances
 
+        // Updating balances
         sender.accumulatedReward += calculateRewardAmount(sender.amount) - sender.rewardDebt;
         recipient.accumulatedReward += calculateRewardAmount(recipient.amount) - recipient.rewardDebt;
 
-        // transfering amounts
+        // Transfering amounts
         sender.amount -= amount;
         recipient.amount += amount;
 
@@ -193,7 +169,7 @@ contract Staking is IERC20, IERC20Metadata {
     function harvest(uint256 amount) public whenNotPaused {
         updateRewardPool();
         UserInfo storage user = userInfo[msg.sender];
-        // +1 to prevent efforts in scum of tstamp
+        // +1 to prevent efforts in scam of tstamp
         require(user.lastHarvestTimestamp + harvestInterval + 1 <= block.timestamp || 
             user.lastHarvestTimestamp == 0, "Staking: less than 24 hours since last harvest");
         user.lastHarvestTimestamp = block.timestamp;
@@ -221,4 +197,46 @@ contract Staking is IERC20, IERC20Metadata {
 
         require(token.transfer(to,amount),"Staking: Not enough token to transfer");
     }
+
+    /* ========== RESTRICTED FUNCTIONS ========== */
+
+    function setApr(uint _aprBasisPoints) public onlyAdmin {
+        updateRewardPool();
+        uint oldAprBasisPoints = aprBasisPoints;
+        aprBasisPoints = _aprBasisPoints;
+        emit SetApr(oldAprBasisPoints, aprBasisPoints);
+    }
+
+    function togglePause() public onlyAdmin {
+        paused = !paused;
+        emit Pause(paused);
+    }
+
+    function withdrawToken(IERC20 tokenToWithdraw, address to, uint amount) public onlyAdmin {
+        require(tokenToWithdraw.transfer(to,amount));
+    }
+
+    function updateAdmin(address _admin) public onlyAdmin {
+        address oldAdmin = admin;
+        admin = _admin;
+        emit SetAdmin(oldAdmin, _admin);
+    }
+
+    /* ========== MODIFIERS ========== */
+
+    modifier whenNotPaused() {
+        require(!paused, "Staking: contract paused.");
+        _;
+    }
+
+    modifier onlyAdmin() {
+        require(msg.sender == admin, "Staking: permitted to admin only.");
+        _;
+    }
+
+    /* ========== EVENTS ========== */
+
+    event Pause(bool flag);
+    event SetAdmin(address oldAdmin, address newAdmin);
+    event SetApr(uint oldBasisPoints, uint newBasisPoints);
 }
