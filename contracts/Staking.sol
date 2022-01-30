@@ -20,9 +20,8 @@ contract Staking is IERC20, IERC20Metadata {
 
     string public name;
     string public symbol;
-    uint public aprBasisPoints;
-    uint public harvestInterval;
-    uint8 public decimals;
+    uint public immutable harvestInterval;
+    uint8 public immutable decimals;
 
     uint public constant calcDecimals = 1e12;
     uint public constant secondsInYear = 31557600;
@@ -31,8 +30,8 @@ contract Staking is IERC20, IERC20Metadata {
     /* ========== STATE VARIABLES ========== */
 
     address public admin;
-
     bool public paused;
+    uint public aprBasisPoints;
 
     uint public amountStaked;
     uint public accumulatedRewardPerShare;
