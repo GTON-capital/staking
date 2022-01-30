@@ -169,8 +169,7 @@ contract Staking is IERC20, IERC20Metadata {
     function harvest(uint256 amount) public whenNotPaused {
         updateRewardPool();
         UserInfo storage user = userInfo[msg.sender];
-        // +1 to prevent efforts in scam of tstamp
-        require(user.lastHarvestTimestamp + harvestInterval + 1 <= block.timestamp || 
+        require(user.lastHarvestTimestamp + harvestInterval <= block.timestamp || 
             user.lastHarvestTimestamp == 0, "Staking: less than 24 hours since last harvest");
         user.lastHarvestTimestamp = block.timestamp;
 
