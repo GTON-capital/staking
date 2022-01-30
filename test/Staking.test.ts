@@ -36,21 +36,21 @@ describe("Staking", () => {
 
         await gton.transfer(denice.address, deniceValue)
         await gton.connect(denice).approve(staking.address, deniceValue)
-        await staking.connect(denice).mint(deniceValue, denice.address)
+        await staking.connect(denice).stake(deniceValue, denice.address)
 
         await gton.transfer(fedor.address, fedorValue)
         await gton.connect(fedor).approve(staking.address, fedorValue)
-        await staking.connect(fedor).mint(fedorValue, fedor.address)
+        await staking.connect(fedor).stake(fedorValue, fedor.address)
 
         await gton.transfer(bob.address, bobValue)
         await gton.connect(bob).approve(staking.address, bobValue)
-        await staking.connect(bob).mint(bobValue, bob.address)
+        await staking.connect(bob).stake(bobValue, bob.address)
     }
 
     it("constructor initializes variables", async () => {
         const lastBlock = (await waffle.provider.getBlock("latest")).timestamp
         expect(await staking.admin()).to.eq(wallet.address)
-        expect(await staking.totalAmount()).to.eq(0)
+        expect(await staking.amountStaked()).to.eq(0)
         expect(await staking.harvestInterval()).to.eq(86400)
         expect(await staking.accumulatedRewardPerShare()).to.eq(0)
         expect(await staking.decimals()).to.eq(await gton.decimals())
@@ -112,9 +112,10 @@ describe("Staking", () => {
             await setTimestamp(waffle.provider, lastChangeTS.add(time.day).toNumber())
             await staking.updateRewardPool()
             const delta = (await staking.lastRewardTimestamp()).sub(lastChangeTS)
-            const minted = calcDecimals.mul(delta).mul(item.apr).div(10000).div(time.year)
+            const aprDenominator = await staking.aprDenominator();
+            const staked = calcDecimals.mul(delta).mul(item.apr).div(aprDenominator).div(time.year)
 
-            expect(await staking.accumulatedRewardPerShare()).to.eq(prevAccRewardPerShare.add(minted))
+            expect(await staking.accumulatedRewardPerShare()).to.eq(prevAccRewardPerShare.add(staked))
             expect(await staking.lastRewardTimestamp()).to.eq(lastChangeTS.add(time.day).add(1))
         }
 
@@ -124,14 +125,15 @@ describe("Staking", () => {
     })
     async function updateDelta(sec: number = 1) {
         const apr = await staking.aprBasisPoints();
+        const aprDenominator = await staking.aprDenominator();
         const lastRewardTimestamp = await staking.lastRewardTimestamp()
         const currentBlockTS = (await waffle.provider.getBlock("latest")).timestamp
         const delta = BigNumber.from(currentBlockTS).add(sec).sub(lastRewardTimestamp)
-        return calcDecimals.mul(delta).mul(apr).div(10000).div(time.year)
+        return calcDecimals.mul(delta).mul(apr).div(aprDenominator).div(time.year)
     }
 
-    async function mint(forUser: string, amount: BigNumberish) {
-        const beforeTotalAmount = await staking.totalAmount()
+    async function stake(forUser: string, amount: BigNumberish) {
+        const beforeAmountStaked = await staking.amountStaked()
         const beforeState = await staking.userInfo(forUser);
         const beforeAmount = beforeState.amount
         const accRewardPerShare = await staking.accumulatedRewardPerShare()
@@ -139,35 +141,35 @@ describe("Staking", () => {
         const accPerShareAfterShareUpdate = accPerShareBeforeShareUpdate.mul(amount).div(calcDecimals)
         const rewardDebt = accPerShareBeforeShareUpdate.mul(beforeState.amount.add(amount)).div(calcDecimals)
         await gton.approve(staking.address, amount);
-        await staking.mint(amount, forUser)
+        await staking.stake(amount, forUser)
         const res = await staking.userInfo(forUser)
 
         expect(res.amount).to.eq(beforeAmount.add(amount))
         expect(res.rewardDebt).to.eq(rewardDebt)
-        expect(res.accumulatedReward).to.eq(beforeAmount.gt(0) ? accPerShareAfterShareUpdate : 0) // imposiible to have reward right after mint
+        expect(res.accumulatedReward).to.eq(beforeAmount.gt(0) ? accPerShareAfterShareUpdate : 0) // imposiible to have reward right after stake
         expect(await staking.accumulatedRewardPerShare()).to.eq(accPerShareBeforeShareUpdate)
-        expect(await staking.totalAmount()).to.eq(beforeTotalAmount.add(amount))
+        expect(await staking.amountStaked()).to.eq(beforeAmountStaked.add(amount))
     }
 
-    it("mint", async () => {
+    it("stake", async () => {
         const amount = expandTo18Decimals(256)
 
-        await expect(staking.mint(0, wallet.address)).to.be.revertedWith("Staking: Nothing to deposit")
-        await expect(staking.mint(amount, wallet.address)).to.be.revertedWith("ERC20: transfer amount exceeds allowance")
+        await expect(staking.stake(0, wallet.address)).to.be.revertedWith("Staking: Nothing to deposit")
+        await expect(staking.stake(amount, wallet.address)).to.be.revertedWith("ERC20: transfer amount exceeds allowance")
 
         await staking.togglePause();
-        await expect(staking.mint(amount, wallet.address)).to.be.revertedWith("Staking: contract paused.")
+        await expect(staking.stake(amount, wallet.address)).to.be.revertedWith("Staking: contract paused.")
         await staking.togglePause();
-        await mint(wallet.address, amount)
+        await stake(wallet.address, amount)
 
         await fillUpStaking();
 
         const amount2 = expandTo18Decimals(150)
-        await mint(other.address, amount2)
+        await stake(other.address, amount2)
     })
 
-    async function burn(user: Wallet, amount: BigNumberish) {
-        const totalAmountsBefore = await staking.totalAmount()
+    async function unstake(user: Wallet, amount: BigNumberish) {
+        const amountStakedBefore = await staking.amountStaked()
         const currentAccRewPerShare = await staking.accumulatedRewardPerShare()
         const stateBefore = await staking.userInfo(user.address);
 
@@ -175,39 +177,39 @@ describe("Staking", () => {
         const rewardEarn = currentAccRewPerShare.add(updateARPS).mul(stateBefore.amount).div(calcDecimals).sub(stateBefore.rewardDebt);
         const rewardDebt = currentAccRewPerShare.add(updateARPS).mul(stateBefore.amount.sub(amount)).div(calcDecimals);
 
-        await staking.connect(user).burn(user.address, amount)
+        await staking.connect(user).unstake(user.address, amount)
 
         const state = await staking.userInfo(user.address)
         expect(state.amount).to.eq(stateBefore.amount.sub(amount))
         expect(state.accumulatedReward).to.eq(stateBefore.accumulatedReward.add(rewardEarn))
         expect(state.rewardDebt).to.eq(rewardDebt)
-        expect(await staking.totalAmount()).to.eq(totalAmountsBefore.sub(amount))
+        expect(await staking.amountStaked()).to.eq(amountStakedBefore.sub(amount))
         expect(await staking.accumulatedRewardPerShare()).to.eq(currentAccRewPerShare.add(updateARPS))
     }
-    it("burn", async () => {
+    it("unstake", async () => {
         await fillUpStaking();
 
         const amount = expandTo18Decimals(115)
         await gton.approve(staking.address, amount)
 
-        await staking.mint(amount, wallet.address)
+        await staking.stake(amount, wallet.address)
 
-        await expect(staking.burn(wallet.address, 0)).to.be.revertedWith("Staking: Nothing to burn")
-        await expect(staking.burn(wallet.address, amount.add(1))).to.be.revertedWith("Staking: Insufficient share")
+        await expect(staking.unstake(wallet.address, 0)).to.be.revertedWith("Staking: Nothing to unstake")
+        await expect(staking.unstake(wallet.address, amount.add(1))).to.be.revertedWith("Staking: Insufficient share")
 
         await staking.togglePause();
-        await expect(staking.burn(wallet.address, amount)).to.be.revertedWith("Staking: contract paused.")
+        await expect(staking.unstake(wallet.address, amount)).to.be.revertedWith("Staking: contract paused.")
         await staking.togglePause();
 
         await gton.transfer(staking.address, await gton.balanceOf(wallet.address));
 
-        await burn(wallet, amount.sub(15))
+        await unstake(wallet, amount.sub(15))
 
     })
 
     async function harvest(user: Wallet, amount: BigNumberish) {
         await gton.approve(staking.address, amount)
-        await staking.mint(amount, user.address)
+        await staking.stake(amount, user.address)
         const lastTS = (await waffle.provider.getBlock("latest")).timestamp
         await setTimestamp(waffle.provider, lastTS + time.year)
         
@@ -241,7 +243,7 @@ describe("Staking", () => {
 
 
         await gton.approve(staking.address, amount)
-        await staking.mint(amount, bob.address)
+        await staking.stake(amount, bob.address)
 
         const lastTS = (await waffle.provider.getBlock("latest")).timestamp
         await setTimestamp(waffle.provider, lastTS+time.month)
@@ -285,7 +287,7 @@ describe("Staking", () => {
     it("transfer", async () => {
         const amount = expandTo18Decimals(279)
         await gton.approve(staking.address, amount);
-        await staking.mint(amount, wallet.address)
+        await staking.stake(amount, wallet.address)
         await mineBlocks(waffle.provider, 10)
         const balance = await staking.balanceOf(wallet.address)
         await expect(staking.transfer(other.address, balance.add(expandTo18Decimals(100)))).to.be.revertedWith("ERC20: transfer amount exceeds balance")
@@ -316,7 +318,7 @@ describe("Staking", () => {
     it("transferFrom", async () => {
         const amount = expandTo18Decimals(150)
         await gton.approve(staking.address, amount);
-        await staking.mint(amount, wallet.address)
+        await staking.stake(amount, wallet.address)
 
         await mineBlocks(waffle.provider, 10)
         await expect(staking.connect(bob).transferFrom(wallet.address, bob.address, 15)).to.be.revertedWith("ERC20: transfer amount exceeds allowance")
@@ -360,10 +362,11 @@ describe("Staking", () => {
 
         async function checkUserApy(user: Wallet, period: number, rounding: boolean = false) {
             const apr = await staking.aprBasisPoints()
+            const aprDenominator = await staking.aprDenominator();
             const userState = await staking.userInfo(user.address);
             const lastTS = BigNumber.from((await waffle.provider.getBlock("latest")).timestamp)
             const stake = userState.amount;
-            const yearEarn = stake.mul(apr).div(10000);
+            const yearEarn = stake.mul(apr).div(aprDenominator);
             const earn = yearEarn.mul(period).div(time.year)
             const balanceBefore = await staking.balanceOf(user.address)
             await setTimestamp(waffle.provider, lastTS.add(period).toNumber())
@@ -379,7 +382,7 @@ describe("Staking", () => {
             for (const i of updRewardData) {
                 await staking.setApr(i.apr)
                 await gton.approve(staking.address, i.amount);
-                await staking.mint(i.amount, i.user.address)
+                await staking.stake(i.amount, i.user.address)
                 await checkUserApy(i.user, time.year)
             }
         })
@@ -390,25 +393,25 @@ describe("Staking", () => {
                 for (const i of updRewardData) {
                     await staking.setApr(i.apr)
                     await gton.approve(staking.address, i.amount);
-                    await staking.mint(i.amount, i.user.address)
+                    await staking.stake(i.amount, i.user.address)
                     await checkUserApy(i.user, period, true)
                     // need to return back to save funds for future tests
-                    await staking.connect(i.user).burn(wallet.address, i.amount)
+                    await staking.connect(i.user).unstake(wallet.address, i.amount)
                 }
             }
         })
 
-        it("for each user we should emulate several mint and burn actions and calculate APY", async () => {
+        it("for each user we should emulate several stake and unstake actions and calculate APY", async () => {
             await fillUpStaking();
             const fedorAmount = expandTo18Decimals(180)
             await gton.approve(staking.address, fedorAmount)
-            await staking.mint(fedorAmount, fedor.address)
+            await staking.stake(fedorAmount, fedor.address)
             await checkUserApy(fedor, time.halfYear, true)
             
             await staking.setApr("1500") // balance update here
 
             await gton.approve(staking.address, fedorAmount)
-            await staking.mint(fedorAmount, alice.address)
+            await staking.stake(fedorAmount, alice.address)
             await checkUserApy(alice, time.halfYear, true)
 
             await staking.connect(fedor).transfer(alice.address, fedorAmount.div(2))
@@ -418,10 +421,10 @@ describe("Staking", () => {
         })
 
         it("if no one farms there should be 0 income at any block after somebody got in, his APY should suite rules", async () => {
-            checkUserApy(other, time.year); // 0 stake means that it will be zero mint for user
+            checkUserApy(other, time.year); // 0 stake means that it will be zero stake for user
             const fedorAmount = expandTo18Decimals(180)
             await gton.approve(staking.address, fedorAmount)
-            await staking.mint(fedorAmount, alice.address)
+            await staking.stake(fedorAmount, alice.address)
         })
     })
 

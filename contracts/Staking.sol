@@ -7,6 +7,7 @@ contract Staking is IERC20, IERC20Metadata {
 
     uint public calcDecimals = 1e12;
     uint public secondsInYear = 31557600;
+    uint public aprDenominator = 10000;
     string public name;
     string public symbol;
 
@@ -16,7 +17,7 @@ contract Staking is IERC20, IERC20Metadata {
     uint public lastRewardTimestamp;
 
     uint public accumulatedRewardPerShare;
-    uint public totalAmount;
+    uint public amountStaked;
     uint public harvestInterval;
     uint public aprBasisPoints;
 
@@ -66,12 +67,12 @@ contract Staking is IERC20, IERC20Metadata {
 
     // just return total in staking amount 
     function totalSupply() public view returns (uint256) {
-        return totalAmount; 
+        return amountStaked; 
     }
 
     function lastDeltaReward() public view returns (uint) {
         uint delta = block.timestamp - lastRewardTimestamp;
-        return delta * aprBasisPoints * calcDecimals / 10000 / secondsInYear;
+        return delta * aprBasisPoints * calcDecimals / aprDenominator / secondsInYear;
     }
 
     function calculateRewardAmount(uint amount) internal view returns (uint) {
@@ -98,8 +99,8 @@ contract Staking is IERC20, IERC20Metadata {
         emit Pause(paused);
     }
 
-    function withdrawToken(IERC20 _token, address _to, uint _amount) public onlyAdmin {
-        require(_token.transfer(_to,_amount));
+    function withdrawToken(IERC20 tokenToWithdraw, address to, uint amount) public onlyAdmin {
+        require(tokenToWithdraw.transfer(to,amount));
     }
 
     function updateAdmin(address _admin) public onlyAdmin {
@@ -131,7 +132,7 @@ contract Staking is IERC20, IERC20Metadata {
     function _transfer(
         address _sender,
         address _recipient,
-        uint _amount
+        uint amount
     ) internal {
         updateRewardPool();
         require(_sender != address(0), "ERC20: transfer from the zero address");
@@ -139,24 +140,23 @@ contract Staking is IERC20, IERC20Metadata {
 
         UserInfo storage sender = userInfo[_sender];
         UserInfo storage recipient = userInfo[_recipient];
-        require(_amount <= sender.amount, "ERC20: transfer amount exceeds balance");
+        require(amount <= sender.amount, "ERC20: transfer amount exceeds balance");
         // updating balances
 
         sender.accumulatedReward += calculateRewardAmount(sender.amount) - sender.rewardDebt;
         recipient.accumulatedReward += calculateRewardAmount(recipient.amount) - recipient.rewardDebt;
 
         // transfering amounts
-        sender.amount -= _amount;
-        recipient.amount += _amount;
+        sender.amount -= amount;
+        recipient.amount += amount;
 
         sender.rewardDebt = calculateRewardAmount(sender.amount);
         recipient.rewardDebt = calculateRewardAmount(recipient.amount);
 
-        emit Transfer(_sender, _recipient, _amount);
+        emit Transfer(_sender, _recipient, amount);
     }
 
     function transfer(address recipient, uint256 amount) public whenNotPaused virtual override returns (bool) {
-        updateRewardPool();
         _transfer(msg.sender, recipient, amount);
         return true;
     } 
@@ -166,7 +166,6 @@ contract Staking is IERC20, IERC20Metadata {
         address recipient,
         uint256 amount
     ) public whenNotPaused virtual override returns (bool) {
-        updateRewardPool();
         _transfer(spender, recipient, amount);
         uint256 currentAllowance = allowances[spender][msg.sender];
         require(currentAllowance >= amount, "ERC20: transfer amount exceeds allowance");
@@ -175,23 +174,23 @@ contract Staking is IERC20, IERC20Metadata {
     }
 
     function updateRewardPool() public whenNotPaused {
-        accumulatedRewardPerShare +=  lastDeltaReward();
+        accumulatedRewardPerShare += lastDeltaReward();
         lastRewardTimestamp = block.timestamp;
     }
 
-    function mint(uint _amount, address _to) external whenNotPaused {
+    function stake(uint amount, address to) external whenNotPaused {
         updateRewardPool();
-        require(_amount > 0, "Staking: Nothing to deposit");
-        require(token.transferFrom(msg.sender,address(this),_amount),"");
+        require(amount > 0, "Staking: Nothing to deposit");
+        require(token.transferFrom(msg.sender,address(this),amount),"");
 
-        UserInfo storage user = userInfo[_to];
+        UserInfo storage user = userInfo[to];
         user.accumulatedReward += calculateRewardAmount(user.amount) - user.rewardDebt;
-        totalAmount += _amount;
-        user.amount += _amount;
+        amountStaked += amount;
+        user.amount += amount;
         user.rewardDebt = calculateRewardAmount(user.amount);
     }
 
-    function harvest(uint256 _amount) public whenNotPaused {
+    function harvest(uint256 amount) public whenNotPaused {
         updateRewardPool();
         UserInfo storage user = userInfo[msg.sender];
         // +1 to prevent efforts in scum of tstamp
@@ -203,23 +202,23 @@ contract Staking is IERC20, IERC20Metadata {
         user.accumulatedReward += reward - user.rewardDebt;
         user.rewardDebt = reward;
 
-        require(_amount > 0, "Staking: Nothing to harvest");
-        require(_amount <= user.accumulatedReward, "Staking: Insufficient to harvest");
-        user.accumulatedReward -= _amount;
-        require(token.transfer(msg.sender,_amount),"");
+        require(amount > 0, "Staking: Nothing to harvest");
+        require(amount <= user.accumulatedReward, "Staking: Insufficient to harvest");
+        user.accumulatedReward -= amount;
+        require(token.transfer(msg.sender,amount),"");
     }
 
-    function burn(address _to, uint256 _amount) public whenNotPaused {
+    function unstake(address to, uint256 amount) public whenNotPaused {
         updateRewardPool();
-        require(_amount > 0, "Staking: Nothing to burn");
+        require(amount > 0, "Staking: Nothing to unstake");
 
         UserInfo storage user = userInfo[msg.sender];
-        require(_amount <= user.amount, "Staking: Insufficient share");
+        require(amount <= user.amount, "Staking: Insufficient share");
         user.accumulatedReward += calculateRewardAmount(user.amount) - user.rewardDebt;
-        totalAmount -= _amount;
-        user.amount -= _amount;
+        amountStaked -= amount;
+        user.amount -= amount;
         user.rewardDebt = calculateRewardAmount(user.amount);
 
-        require(token.transfer(_to,_amount),"Staking: Not enough token to transfer");
+        require(token.transfer(to,amount),"Staking: Not enough token to transfer");
     }
 }
