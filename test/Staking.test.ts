@@ -29,7 +29,7 @@ describe("Staking", () => {
 
     const calcDecimals = BigNumber.from(1e12);
 
-    async function fillUpCompound() {
+    async function fillUpStaking() {
         const fedorValue = BigNumber.from("974426000000")
         const deniceValue = BigNumber.from("1000000")
         const bobValue = BigNumber.from("76499200000")
@@ -49,7 +49,7 @@ describe("Staking", () => {
 
     it("constructor initializes variables", async () => {
         const lastBlock = (await waffle.provider.getBlock("latest")).timestamp
-        expect(await staking.owner()).to.eq(wallet.address)
+        expect(await staking.admin()).to.eq(wallet.address)
         expect(await staking.totalAmount()).to.eq(0)
         expect(await staking.harvestInterval()).to.eq(86400)
         expect(await staking.accumulatedRewardPerShare()).to.eq(0)
@@ -58,16 +58,16 @@ describe("Staking", () => {
         expect(await staking.aprBasisPoints()).to.eq(2500)
     })
 
-    it("transfer ownership", async () => {
-        await expect(staking.connect(other).transferOwnership(wallet.address)).to.be.revertedWith('Staking: permitted to owner only.')
-        await staking.transferOwnership(other.address)
-        expect(await staking.owner()).to.eq(other.address)
+    it("update admin", async () => {
+        await expect(staking.connect(other).updateAdmin(wallet.address)).to.be.revertedWith('Staking: permitted to admin only.')
+        await staking.updateAdmin(other.address)
+        expect(await staking.admin()).to.eq(other.address)
     })
 
     it("set APR", async () => {
         // random numbers
         const apr = BigNumber.from("140")
-        await expect(staking.connect(other).setApr(apr)).to.be.revertedWith('Staking: permitted to owner only.')
+        await expect(staking.connect(other).setApr(apr)).to.be.revertedWith('Staking: permitted to admin only.')
         await staking.setApr(apr)
         expect(await staking.aprBasisPoints()).to.eq(apr)
     })
@@ -75,9 +75,9 @@ describe("Staking", () => {
     it("withdraw token", async () => {
         const amount = BigNumber.from(15000000000000)
         gton.transfer(staking.address, amount)
-        await expect(staking.connect(other).withdrawToken(gton.address, wallet.address, amount)).to.be.revertedWith('Staking: permitted to owner only')
+        await expect(staking.connect(other).withdrawToken(gton.address, wallet.address, amount)).to.be.revertedWith('Staking: permitted to admin only')
         // expect admin to fail to withdraw
-        await expect(staking.connect(admin0).withdrawToken(gton.address, wallet.address, amount)).to.be.revertedWith('Staking: permitted to owner only')
+        await expect(staking.connect(admin0).withdrawToken(gton.address, wallet.address, amount)).to.be.revertedWith('Staking: permitted to admin only')
         await staking.withdrawToken(gton.address, other.address, amount)
         expect(await gton.balanceOf(other.address)).to.eq(amount)
         expect(await gton.balanceOf(staking.address)).to.eq(0)
@@ -160,7 +160,7 @@ describe("Staking", () => {
         await staking.togglePause();
         await mint(wallet.address, amount)
 
-        await fillUpCompound();
+        await fillUpStaking();
 
         const amount2 = expandTo18Decimals(150)
         await mint(other.address, amount2)
@@ -185,7 +185,7 @@ describe("Staking", () => {
         expect(await staking.accumulatedRewardPerShare()).to.eq(currentAccRewPerShare.add(updateARPS))
     }
     it("burn", async () => {
-        await fillUpCompound();
+        await fillUpStaking();
 
         const amount = expandTo18Decimals(115)
         await gton.approve(staking.address, amount)
@@ -226,7 +226,7 @@ describe("Staking", () => {
     }
 
     it("harvest", async () => {
-        await fillUpCompound();
+        await fillUpStaking();
 
         const amount = expandTo18Decimals(115)
 
@@ -375,7 +375,7 @@ describe("Staking", () => {
         }
 
         it("After year APY of each user should be correct and APY of all sc the same", async () => {
-            await fillUpCompound()
+            await fillUpStaking()
             for (const i of updRewardData) {
                 await staking.setApr(i.apr)
                 await gton.approve(staking.address, i.amount);
@@ -385,7 +385,7 @@ describe("Staking", () => {
         })
 
         it("After n blocks APY of all sc should be correct for these n blocks", async () => {
-            await fillUpCompound()
+            await fillUpStaking()
             for (const period of Object.values(time)) {
                 for (const i of updRewardData) {
                     await staking.setApr(i.apr)
@@ -399,7 +399,7 @@ describe("Staking", () => {
         })
 
         it("for each user we should emulate several mint and burn actions and calculate APY", async () => {
-            await fillUpCompound();
+            await fillUpStaking();
             const fedorAmount = expandTo18Decimals(180)
             await gton.approve(staking.address, fedorAmount)
             await staking.mint(fedorAmount, fedor.address)

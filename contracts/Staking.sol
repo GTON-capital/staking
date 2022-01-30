@@ -10,7 +10,7 @@ contract Staking is IERC20, IERC20Metadata {
     string public name;
     string public symbol;
 
-    address public owner;
+    address public admin;
 
     bool public paused;
     uint public lastRewardTimestamp;
@@ -45,7 +45,7 @@ contract Staking is IERC20, IERC20Metadata {
         symbol = _symbol;
         aprBasisPoints = _aprBasisPoints;
         harvestInterval = _harvestInterval;
-        owner = msg.sender;
+        admin = msg.sender;
         lastRewardTimestamp = block.timestamp;
         decimals = IERC20Metadata(address(_token)).decimals();
     }
@@ -55,13 +55,13 @@ contract Staking is IERC20, IERC20Metadata {
         _;
     }
 
-    modifier onlyOwner() {
-        require(msg.sender == owner, "Staking: permitted to owner only.");
+    modifier onlyAdmin() {
+        require(msg.sender == admin, "Staking: permitted to admin only.");
         _;
     }
 
     event Pause(bool flag);
-    event SetOwner(address oldOwner, address newOwner);
+    event SetAdmin(address oldAdmin, address newAdmin);
     event SetApr(uint oldBasisPoints, uint newBasisPoints);
 
     // just return total in staking amount 
@@ -86,41 +86,41 @@ contract Staking is IERC20, IERC20Metadata {
         return user.accumulatedReward + acc + user.amount;
     }
 
-    function setApr(uint _aprBasisPoints) public onlyOwner {
+    function setApr(uint _aprBasisPoints) public onlyAdmin {
         updateRewardPool();
         uint oldAprBasisPoints = aprBasisPoints;
         aprBasisPoints = _aprBasisPoints;
         emit SetApr(oldAprBasisPoints, aprBasisPoints);
     }
 
-    function togglePause() public onlyOwner {
+    function togglePause() public onlyAdmin {
         paused = !paused;
         emit Pause(paused);
     }
 
-    function withdrawToken(IERC20 _token, address _to, uint _amount) public onlyOwner {
+    function withdrawToken(IERC20 _token, address _to, uint _amount) public onlyAdmin {
         require(_token.transfer(_to,_amount));
     }
 
-    function transferOwnership(address _owner) public onlyOwner {
-        address oldOwner = owner;
-        owner = _owner;
-        emit SetOwner(oldOwner, _owner);
+    function updateAdmin(address _admin) public onlyAdmin {
+        address oldAdmin = admin;
+        admin = _admin;
+        emit SetAdmin(oldAdmin, _admin);
     }
 
-    function allowance(address _owner, address spender) external view returns (uint256) {
-        return allowances[_owner][spender];
+    function allowance(address owner, address spender) external view returns (uint256) {
+        return allowances[owner][spender];
     }
 
     function _approve(
-        address _owner,
+        address owner,
         address spender,
         uint256 amount
     ) internal virtual {
-        require(_owner != address(0), "ERC20: approve from the zero address");
+        require(owner != address(0), "ERC20: approve from the zero address");
         require(spender != address(0), "ERC20: approve to the zero address");
-        allowances[_owner][spender] = amount;
-        emit Approval(_owner, spender, amount);
+        allowances[owner][spender] = amount;
+        emit Approval(owner, spender, amount);
     }
 
     function approve(address spender, uint amount) public whenNotPaused virtual override returns (bool) {
