@@ -16,7 +16,7 @@ contract Staking is IERC20, IERC20Metadata {
 
     /* ========== CONSTANTS ========== */
 
-    IERC20 public immutable token;
+    IERC20 public immutable stakingToken;
 
     string public name;
     string public symbol;
@@ -50,7 +50,7 @@ contract Staking is IERC20, IERC20Metadata {
         uint _aprBasisPoints,
         uint _harvestInterval
     ) {
-        token = _token;
+        stakingToken = _token;
         name = _name;
         symbol = _symbol;
         aprBasisPoints = _aprBasisPoints;
@@ -157,7 +157,7 @@ contract Staking is IERC20, IERC20Metadata {
     function stake(uint amount, address to) external whenNotPaused {
         updateRewardPool();
         require(amount > 0, "Staking: Nothing to deposit");
-        require(token.transferFrom(msg.sender,address(this),amount),"");
+        require(stakingToken.transferFrom(msg.sender,address(this),amount),"");
 
         UserInfo storage user = userInfo[to];
         user.accumulatedReward += calculateRewardAmount(user.amount) - user.rewardDebt;
@@ -180,7 +180,7 @@ contract Staking is IERC20, IERC20Metadata {
         require(amount > 0, "Staking: Nothing to harvest");
         require(amount <= user.accumulatedReward, "Staking: Insufficient to harvest");
         user.accumulatedReward -= amount;
-        require(token.transfer(msg.sender,amount),"");
+        require(stakingToken.transfer(msg.sender,amount),"");
     }
 
     function unstake(address to, uint256 amount) public whenNotPaused {
@@ -194,7 +194,7 @@ contract Staking is IERC20, IERC20Metadata {
         user.amount -= amount;
         user.rewardDebt = calculateRewardAmount(user.amount);
 
-        require(token.transfer(to,amount),"Staking: Not enough token to transfer");
+        require(stakingToken.transfer(to,amount),"Staking: Not enough token to transfer");
     }
 
     /* ========== RESTRICTED FUNCTIONS ========== */
