@@ -32,7 +32,7 @@ describe("Staking", () => {
     async function fillUpStaking() {
         const fedorValue = BigNumber.from("974426000000")
         const deniceValue = BigNumber.from("1000000")
-        const bobValue = BigNumber.from("76499200000")
+        const bobValue = BigNumber.from("6000000000000000000000000")
 
         await gton.transfer(denice.address, deniceValue)
         await gton.connect(denice).approve(staking.address, deniceValue)

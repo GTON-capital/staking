@@ -13,7 +13,7 @@ interface CompoundFixture {
 
 export const stakingFixture: Fixture<CompoundFixture> = async function (): Promise<CompoundFixture> {
     const gtonF = await ethers.getContractFactory("ERC20Mock")
-    const gton = (await gtonF.deploy("Graviton", "GTON", BigNumber.from("100000000000000000000000"))) as ERC20
+    const gton = (await gtonF.deploy("Graviton", "GTON", BigNumber.from("21000000000000000000000000"))) as ERC20
     const stakingF = await ethers.getContractFactory("Staking")
     const staking = (await stakingF.deploy(
         gton.address,
