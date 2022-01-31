@@ -13,11 +13,6 @@
 						"type": "address"
 					},
 					{
-						"internalType": "uint256",
-						"name": "_blocksInYear",
-						"type": "uint256"
-					},
-					{
 						"internalType": "string",
 						"name": "_name",
 						"type": "string"
@@ -35,6 +30,16 @@
 					{
 						"internalType": "uint256",
 						"name": "_apyDown",
+						"type": "uint256"
+					},
+					{
+						"internalType": "address[]",
+						"name": "admins",
+						"type": "address[]"
+					},
+					{
+						"internalType": "uint256",
+						"name": "_harvestInterval",
 						"type": "uint256"
 					}
 				],
@@ -174,6 +179,19 @@
 				"type": "event"
 			},
 			{
+				"inputs": [],
+				"name": "accamulatedRewardPerShare",
+				"outputs": [
+					{
+						"internalType": "uint256",
+						"name": "",
+						"type": "uint256"
+					}
+				],
+				"stateMutability": "view",
+				"type": "function"
+			},
+			{
 				"inputs": [
 					{
 						"internalType": "address",
@@ -293,45 +311,13 @@
 			{
 				"inputs": [
 					{
-						"internalType": "uint256",
-						"name": "_balance",
-						"type": "uint256"
-					}
-				],
-				"name": "balanceToShare",
-				"outputs": [
-					{
-						"internalType": "uint256",
-						"name": "",
-						"type": "uint256"
-					}
-				],
-				"stateMutability": "view",
-				"type": "function"
-			},
-			{
-				"inputs": [],
-				"name": "blocksInYear",
-				"outputs": [
-					{
-						"internalType": "uint256",
-						"name": "",
-						"type": "uint256"
-					}
-				],
-				"stateMutability": "view",
-				"type": "function"
-			},
-			{
-				"inputs": [
-					{
 						"internalType": "address",
 						"name": "_to",
 						"type": "address"
 					},
 					{
 						"internalType": "uint256",
-						"name": "_share",
+						"name": "_amount",
 						"type": "uint256"
 					}
 				],
@@ -354,8 +340,34 @@
 				"type": "function"
 			},
 			{
+				"inputs": [
+					{
+						"internalType": "uint256",
+						"name": "_amount",
+						"type": "uint256"
+					}
+				],
+				"name": "harvest",
+				"outputs": [],
+				"stateMutability": "nonpayable",
+				"type": "function"
+			},
+			{
 				"inputs": [],
-				"name": "lastRewardBlock",
+				"name": "harvestInterval",
+				"outputs": [
+					{
+						"internalType": "uint256",
+						"name": "",
+						"type": "uint256"
+					}
+				],
+				"stateMutability": "view",
+				"type": "function"
+			},
+			{
+				"inputs": [],
+				"name": "lastRewardTimestamp",
 				"outputs": [
 					{
 						"internalType": "uint256",
@@ -457,19 +469,6 @@
 			},
 			{
 				"inputs": [],
-				"name": "requiredBalance",
-				"outputs": [
-					{
-						"internalType": "uint256",
-						"name": "",
-						"type": "uint256"
-					}
-				],
-				"stateMutability": "view",
-				"type": "function"
-			},
-			{
-				"inputs": [],
 				"name": "revertFlag",
 				"outputs": [
 					{
@@ -513,38 +512,6 @@
 				"type": "function"
 			},
 			{
-				"inputs": [
-					{
-						"internalType": "uint256",
-						"name": "_blocksInYear",
-						"type": "uint256"
-					}
-				],
-				"name": "setBlocksInYear",
-				"outputs": [],
-				"stateMutability": "nonpayable",
-				"type": "function"
-			},
-			{
-				"inputs": [
-					{
-						"internalType": "uint256",
-						"name": "_share",
-						"type": "uint256"
-					}
-				],
-				"name": "shareToBalance",
-				"outputs": [
-					{
-						"internalType": "uint256",
-						"name": "",
-						"type": "uint256"
-					}
-				],
-				"stateMutability": "view",
-				"type": "function"
-			},
-			{
 				"inputs": [],
 				"name": "symbol",
 				"outputs": [
@@ -572,6 +539,19 @@
 						"internalType": "contract IERC20",
 						"name": "",
 						"type": "address"
+					}
+				],
+				"stateMutability": "view",
+				"type": "function"
+			},
+			{
+				"inputs": [],
+				"name": "totalAmounts",
+				"outputs": [
+					{
+						"internalType": "uint256",
+						"name": "",
+						"type": "uint256"
 					}
 				],
 				"stateMutability": "view",
@@ -670,24 +650,6 @@
 				"type": "function"
 			},
 			{
-				"inputs": [
-					{
-						"internalType": "address",
-						"name": "to",
-						"type": "address"
-					},
-					{
-						"internalType": "uint256",
-						"name": "share",
-						"type": "uint256"
-					}
-				],
-				"name": "transferShare",
-				"outputs": [],
-				"stateMutability": "nonpayable",
-				"type": "function"
-			},
-			{
 				"inputs": [],
 				"name": "updateRewardPool",
 				"outputs": [],
@@ -706,12 +668,22 @@
 				"outputs": [
 					{
 						"internalType": "uint256",
-						"name": "share",
+						"name": "amount",
 						"type": "uint256"
 					},
 					{
 						"internalType": "uint256",
-						"name": "tokenAtLastUserAction",
+						"name": "rewardDebt",
+						"type": "uint256"
+					},
+					{
+						"internalType": "uint256",
+						"name": "accamulatedReward",
+						"type": "uint256"
+					},
+					{
+						"internalType": "uint256",
+						"name": "lastHarvestTimestamp",
 						"type": "uint256"
 					}
 				],
@@ -770,11 +742,11 @@
 	},
 	"sources": {
 		"contracts/CompoundStaking.sol": {
-			"keccak256": "0x03d38e6006846a6cf70d0dbe2596bb8a23a79fe8988768accec1eeb4d433a202",
+			"keccak256": "0x305cda04be8b8ea0ce1757b4eadc1076f0e9722be5a813ee4aec983496b7a10c",
 			"license": "MIT",
 			"urls": [
-				"bzz-raw://90ca11df41e3c0c7a4eae5c2ff0d4c9e5b4148990880006d68fe3d3f57139278",
-				"dweb:/ipfs/QmP8im4peVZDR6zxtM8ALzfVbPagNotGDxDFrg9rGW8uFX"
+				"bzz-raw://d9c42360f9f07b58b5af7bc327b6a2fa4ee3943186bf0f2dff9fa729d469eb41",
+				"dweb:/ipfs/QmcMyszNT4EfKXxwXngad1kqDk51cYiMWJeyJjD5hAGRP6"
 			]
 		},
 		"contracts/interfaces/IERC20.sol": {
@@ -786,11 +758,11 @@
 			]
 		},
 		"contracts/libraries/AddressArrayLibrary.sol": {
-			"keccak256": "0xee5c09f7f6a807265814612e9d24626403360e6e1d8af0d61e819e969b1e531e",
+			"keccak256": "0x06b3e075d159db1e61a72e753f92ad1a519e394d984fee83185181126f562ee5",
 			"license": "MIT",
 			"urls": [
-				"bzz-raw://e89736701a212c4a667565e030d22aec36070580a28c6e965deb69c605319d7e",
-				"dweb:/ipfs/Qmf6EFi25vjmJm9oq8Qzhopn6aAzbeaX5ezwjmKKR2bpQe"
+				"bzz-raw://082a3ff1c7a1a6b95dcb6a514a077b4e8e5c409e6b0c5f77dfe4867a34f6f6ce",
+				"dweb:/ipfs/QmTgoSLNZH6Q6Z4ZUDLDZmoMwhu8GcHbPni8WieLPBpT9C"
 			]
 		}
 	},

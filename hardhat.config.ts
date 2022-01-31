@@ -19,7 +19,7 @@ import { HardhatUserConfig } from "hardhat/types"
 import { removeConsoleLog } from "hardhat-preprocessor"
 
 const accounts = {
-  mnemonic: process.env.MNEMONIC || "test test test test test test test test test test test junk",
+  mnemonic: process.env.MNEMONIC,
   // accountsBalance: "990000000000000000000",
 }
 
@@ -33,7 +33,7 @@ const config: HardhatUserConfig = {
   },
   defaultNetwork: "hardhat",
   etherscan: {
-    apiKey: process.env.ETHERSCAN_API_KEY,
+    apiKey: process.env.SCAN_API_KEY,
   },
   gasReporter: {
     coinmarketcap: process.env.COINMARKETCAP_API_KEY,
@@ -50,18 +50,18 @@ const config: HardhatUserConfig = {
     },
     dev: {
       // Default to 1
-      default: 1,
+      default: 2,
       // dev address mainnet
       // 1: "",
     },
   },
   networks: {
-    mainnet: {
+  /*  mainnet: {
       url: `https://mainnet.infura.io/v3/${process.env.INFURA_API_KEY}`,
       accounts,
       gasPrice: 120 * 1000000000,
       chainId: 1,
-    },
+    }, */
     localhost: {
       live: false,
       saveDeployments: true,
@@ -76,6 +76,7 @@ const config: HardhatUserConfig = {
       saveDeployments: true,
       tags: ["test", "local"],
     },
+   /*
     ropsten: {
       url: `https://ropsten.infura.io/v3/${process.env.INFURA_API_KEY}`,
       accounts,
@@ -124,23 +125,6 @@ const config: HardhatUserConfig = {
       saveDeployments: true,
       tags: ["staging"],
       gas: 5198000,
-      gasMultiplier: 2,
-    },
-    fantom: {
-      url: "https://rpcapi.fantom.network",
-      accounts,
-      chainId: 250,
-      live: true,
-      saveDeployments: true,
-      gasPrice: 22000000000,
-    },
-    "fantom-testnet": {
-      url: "https://rpc.testnet.fantom.network",
-      accounts,
-      chainId: 4002,
-      live: true,
-      saveDeployments: true,
-      tags: ["staging"],
       gasMultiplier: 2,
     },
     matic: {
@@ -307,7 +291,7 @@ const config: HardhatUserConfig = {
       chainId: 1024,
       live: true,
       saveDeployments: true,
-    },
+    }, */
   },
   paths: {
     artifacts: "artifacts",
