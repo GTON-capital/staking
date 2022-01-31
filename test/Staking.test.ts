@@ -371,7 +371,7 @@ describe("Staking", () => {
             const balanceBefore = await staking.balanceOf(user.address)
             await setTimestamp(waffle.provider, lastTS.add(period).toNumber())
             if(rounding) {
-                expect(await staking.balanceOf(user.address)).to.be.closeTo(balanceBefore.add(earn), 100000000000) // because of 1 block
+                expect(await staking.balanceOf(user.address)).to.be.closeTo(balanceBefore.add(earn), 100) // because of 1 block
             } else {
                 expect(await staking.balanceOf(user.address)).to.eq(balanceBefore.add(earn))
             }
@@ -389,12 +389,13 @@ describe("Staking", () => {
 
         it("After n blocks APY of all sc should be correct for these n blocks", async () => {
             await fillUpStaking()
-            for (const period of Object.values(time)) {
+            const periods = [time.year, time.halfYear, time.month]
+            for (const period of periods) {
                 for (const i of updRewardData) {
                     await staking.setApr(i.apr)
                     await gton.approve(staking.address, i.amount);
                     await staking.stake(i.amount, i.user.address)
-                    await checkUserApy(i.user, period, true)
+                    await checkUserApy(i.user, period)
                     // need to return back to save funds for future tests
                     await staking.connect(i.user).unstake(wallet.address, i.amount)
                 }

@@ -23,10 +23,10 @@ export async function setTimestamp(provider: any, timestamp: number): Promise<vo
 } 
 
 export const time = {
-  day: 60*60*24,
   year: 31557600,
   halfYear: 15778800,
   month: 2629800,
+  day: 60*60*24,
 }
 
 export * from "./time"
