@@ -442,10 +442,10 @@ describe("Staking", () => {
                 await staking.updateRewardPool();
                 i++;
             }
-            console.log(firstAPRS.toString());
+            console.log("First APRS " + firstAPRS.toString());
             
             const secondAPRS = (await staking.accumulatedRewardPerShare()).sub(afterARPS);
-            console.log(secondAPRS.toString());
+            console.log("Second APRS " + secondAPRS.toString());
             expect(secondAPRS).to.eq(firstAPRS)
         })
     })
