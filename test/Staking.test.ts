@@ -27,7 +27,7 @@ describe("Staking", () => {
 
     })
 
-    const calcDecimals = BigNumber.from('100000000000000'); // 1e14
+    const calcDecimals = BigNumber.from(1e12);
 
     async function fillUpStaking() {
         const fedorValue = BigNumber.from("974426000000")
@@ -423,9 +423,10 @@ describe("Staking", () => {
 
         it("if no one farms there should be 0 income at any block after somebody got in, his APY should suite rules", async () => {
             checkUserApy(other, time.year); // 0 stake means that it will be zero stake for user
-            const fedorAmount = expandTo18Decimals(180)
-            await gton.approve(staking.address, fedorAmount)
-            await staking.stake(fedorAmount, alice.address)
+            const amount = expandTo18Decimals(180)
+            await gton.approve(staking.address, amount)
+            await staking.stake(amount, alice.address)
+            checkUserApy(alice, time.year);
         })
 
         it("Check rewardDelta with every second update", async () => {
@@ -450,6 +451,7 @@ describe("Staking", () => {
         })
     })
     context("Harvest cases", function () {
+
         it("harvest all with update", async () => {
 
         })
