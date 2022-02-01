@@ -27,7 +27,7 @@ describe("Staking", () => {
 
     })
 
-    const calcDecimals = BigNumber.from(1e12);
+    const calcDecimals = BigNumber.from('100000000000000'); // 1e14
 
     async function fillUpStaking() {
         const fedorValue = BigNumber.from("974426000000")
@@ -426,6 +426,32 @@ describe("Staking", () => {
             const fedorAmount = expandTo18Decimals(180)
             await gton.approve(staking.address, fedorAmount)
             await staking.stake(fedorAmount, alice.address)
+        })
+
+        it("Check rewardDelta with every second update", async () => {
+            await fillUpStaking()
+            const period = 100; // seconds
+            const previousARPS = await staking.accumulatedRewardPerShare();
+            let lastTM = (await waffle.provider.getBlock("latest")).timestamp
+            await setTimestamp(waffle.provider, lastTM + period - 1); // -1 because of upcoming update reward poll txn
+            await staking.updateRewardPool()
+            const afterARPS = await staking.accumulatedRewardPerShare()
+            const firstAPRS = (afterARPS).sub(previousARPS);
+            let i = 0;
+            while(i < period) {
+                await staking.updateRewardPool();
+                i++;
+            }
+            console.log(firstAPRS.toString());
+            
+            const secondAPRS = (await staking.accumulatedRewardPerShare()).sub(afterARPS);
+            console.log(secondAPRS.toString());
+            expect(secondAPRS).to.eq(firstAPRS)
+        })
+    })
+    context("Harvest cases", function () {
+        it("harvest all with update", async () => {
+
         })
     })
 
