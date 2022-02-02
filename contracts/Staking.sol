@@ -2,7 +2,6 @@
 pragma solidity 0.8.8;
 
 import "./interfaces/IERC20.sol";
-import "hardhat/console.sol";
 
 contract Staking is IERC20, IERC20Metadata {
 
@@ -150,8 +149,6 @@ contract Staking is IERC20, IERC20Metadata {
     }
 
     function updateRewardPool() public whenNotPaused {
-        console.log("c reward delta ");
-        console.log(currentRewardDelta());
         accumulatedRewardPerShare += currentRewardDelta();
         lastRewardTimestamp = block.timestamp;
     }
@@ -174,9 +171,7 @@ contract Staking is IERC20, IERC20Metadata {
         require(user.lastHarvestTimestamp + harvestInterval <= block.timestamp || 
             user.lastHarvestTimestamp == 0, "Staking: less than 24 hours since last harvest");
         user.lastHarvestTimestamp = block.timestamp;
-        console.log(accumulatedRewardPerShare);
         uint reward = calculateRewardForStake(user.amount);
-        console.log(reward);
         user.accumulatedReward += reward - user.rewardDebt;
         user.rewardDebt = reward;
 
