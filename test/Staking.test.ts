@@ -6,6 +6,7 @@ import { mineBlocks, timestampSetter, blockGetter, expandTo18Decimals, time } fr
 
 import { ERC20 } from "../types/ERC20"
 import { Staking } from "../types/Staking"
+import { userInfo } from "os"
 
 
 describe("Staking", () => {
@@ -124,12 +125,14 @@ describe("Staking", () => {
         await expect(staking.updateRewardPool()).to.be.revertedWith("Staking: contract paused.")
         await staking.togglePause();
     })
-    async function updateDelta(sec: number = 1) {
+
+    // Function that calculates the ARPS amount from current block + period
+    async function periodARPS(period: number = 1) {
         const apr = await staking.aprBasisPoints();
         const aprDenominator = await staking.aprDenominator();
         const lastRewardTimestamp = await staking.lastRewardTimestamp()
         const currentBlockTS = await getLastTS()
-        const delta = BigNumber.from(currentBlockTS).add(sec).sub(lastRewardTimestamp)
+        const delta = BigNumber.from(currentBlockTS).add(period).sub(lastRewardTimestamp)
         return calcDecimals.mul(delta).mul(apr).div(aprDenominator).div(time.year)
     }
 
@@ -138,7 +141,7 @@ describe("Staking", () => {
         const beforeState = await staking.userInfo(forUser);
         const beforeAmount = beforeState.amount
         const accRewardPerShare = await staking.accumulatedRewardPerShare()
-        const accPerShareBeforeShareUpdate = (accRewardPerShare).add(await updateDelta(2))
+        const accPerShareBeforeShareUpdate = (accRewardPerShare).add(await periodARPS(2))
         const accPerShareAfterShareUpdate = accPerShareBeforeShareUpdate.mul(amount).div(calcDecimals)
         const rewardDebt = accPerShareBeforeShareUpdate.mul(beforeState.amount.add(amount)).div(calcDecimals)
         await gton.approve(staking.address, amount);
@@ -174,7 +177,7 @@ describe("Staking", () => {
         const currentAccRewPerShare = await staking.accumulatedRewardPerShare()
         const stateBefore = await staking.userInfo(user.address);
 
-        const updateARPS = await updateDelta()
+        const updateARPS = await periodARPS()
         const rewardEarn = currentAccRewPerShare.add(updateARPS).mul(stateBefore.amount).div(calcDecimals).sub(stateBefore.rewardDebt);
         const rewardDebt = currentAccRewPerShare.add(updateARPS).mul(stateBefore.amount.sub(amount)).div(calcDecimals);
 
@@ -216,7 +219,7 @@ describe("Staking", () => {
         
         const stateBefore = await staking.userInfo(user.address);
         const currentAccRewPerShare = await staking.accumulatedRewardPerShare()
-        const updateARPS = await updateDelta()
+        const updateARPS = await periodARPS()
         const rewardEarn = currentAccRewPerShare.add(updateARPS).mul(stateBefore.amount).div(calcDecimals).sub(stateBefore.rewardDebt);
         const rewardDebt = currentAccRewPerShare.add(updateARPS).mul(stateBefore.amount).div(calcDecimals);
 
@@ -257,7 +260,7 @@ describe("Staking", () => {
 
     async function transfer(sender: Wallet, receiver: string, amount: BigNumberish) {
         const ARPS = await staking.accumulatedRewardPerShare()
-        const updateARPS = (await updateDelta()).add(ARPS);
+        const updateARPS = (await periodARPS()).add(ARPS);
 
         const senderStateBefore = await staking.userInfo(sender.address)
         const receiverStateBefore = await staking.userInfo(receiver)
@@ -332,7 +335,7 @@ describe("Staking", () => {
         await staking.approve(bob.address, transferAmount)
 
         const ARPS = await staking.accumulatedRewardPerShare()
-        const updateARPS = (await updateDelta()).add(ARPS);
+        const updateARPS = (await periodARPS()).add(ARPS);
 
         const senderStateBefore = await staking.userInfo(wallet.address)
         const receiverStateBefore = await staking.userInfo(bob.address)
@@ -430,6 +433,10 @@ describe("Staking", () => {
             await checkUserApy(alice, time.year);
         })
 
+        it("Check user incom with APR change", async () => {
+            
+        })
+
         it("Check rewardDelta with every second update", async () => {
             await fillUpStaking()
             const period = 100; // seconds
@@ -453,18 +460,26 @@ describe("Staking", () => {
     })
     context("Harvest cases", async function () {
 
-        async function getRewardInNextBlock(user: Wallet) {
-
+        async function getRewardInNextBlock(user: string): Promise<BigNumber> {
+            const userInfo = await staking.userInfo(user);
+            const lastARPS = await staking.accumulatedRewardPerShare()
+            const updateARPS = await periodARPS();
+            const futureARPS = lastARPS.add(updateARPS);
+            return futureARPS.mul(userInfo.amount).div(calcDecimals).sub(userInfo.rewardDebt)
         }
 
-        it("harvest all with update", async () => {
+        it("harvest all", async () => {
             const amount = expandTo18Decimals(150)
             await gton.approve(staking.address, amount);
             await staking.stake(amount, wallet.address)
+
             const lastTS = await getLastTS()
             await setTimestamp(lastTS + time.month)
-            await staking.updateRewardPool();
-
+            const reward = await getRewardInNextBlock(wallet.address);
+            
+            expect((await staking.userInfo(wallet.address)).accumulatedReward).to.eq(0);
+            await staking.harvest(reward)
+            expect(await staking.balanceOf(wallet.address)).to.eq(amount)
         })
     })
 
