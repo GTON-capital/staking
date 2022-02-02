@@ -68,7 +68,7 @@ contract Staking is IERC20, IERC20Metadata {
 
     function currentRewardDelta() public view returns (uint) {
         uint timeDelta = block.timestamp - lastRewardTimestamp;
-        return timeDelta * aprBasisPoints * calcDecimals / aprDenominator / secondsInYear;
+        return (timeDelta * aprBasisPoints * calcDecimals) / (aprDenominator * secondsInYear);
     }
 
     function calculateRewardForStake(uint amount) internal view returns (uint) {
