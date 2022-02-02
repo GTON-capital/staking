@@ -448,6 +448,49 @@ describe("Staking", () => {
 
         })
 
+        // +2 blocks
+        async function calculatePayout(stake: BigNumber, period: number) {
+            const apr = await staking.aprBasisPoints();
+            const aprDenominator = await staking.aprDenominator();
+            return stake.mul(period).mul(apr).div(aprDenominator).div(time.year)
+        }
+
+        // +2 blocks, returns staking timestamp
+        async function stakeAndWait(user: Wallet, stake: BigNumber, period: number) {
+            await staking.connect(user).stake(stake, user.address)
+            const lastTS = await getLastTS()
+            await setTimestamp(lastTS + period)
+            return lastTS
+        }
+
+        it.only("after one stake user gets correct payout", async () => {
+            const user = denice
+
+            const aLotGton = expandTo18Decimals(10000)
+            await gton.transfer(user.address, aLotGton)
+            await gton.connect(user).approve(staking.address, aLotGton)
+
+            const testAmount = expandTo18Decimals(200)
+
+            const stakingTS = await stakeAndWait(user, testAmount, time.year)
+
+            const balance = await staking.balanceOf(user.address)
+            console.log("Balance: " + balance.toString())
+
+            const finalTS = await getLastTS()
+
+            // await staking.attach(user.address).harvest(1)
+            await staking.attach(user.address).unstake(user.address, 1)
+
+            const finalReward = await staking.userInfo(user.address)
+
+            const totalStakingTime = finalTS - stakingTS
+            const expectedReward = await calculatePayout(testAmount, totalStakingTime)
+
+            console.log("Expected reward: " + expectedReward.toString())
+            console.log("Real reward: " + finalReward.accumulatedReward.toString())
+        })
+
         it("if no one farms there should be 0 income at any block after somebody got in, his APY should suite rules", async () => {
             await checkUserApy(other, time.year); // 0 stake means that it will be zero stake for user
             const amount = expandTo18Decimals(180)
