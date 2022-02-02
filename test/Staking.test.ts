@@ -462,32 +462,59 @@ describe("Staking", () => {
             return lastTS
         }
 
+        async function dropALot(user: Wallet) {
+            const aLotGton = expandTo18Decimals(100000)
+            await gton.transfer(user.address, aLotGton)
+            await gton.connect(user).approve(staking.address, aLotGton)
+        }
+
         it("after one stake user gets correct payout", async () => {
             const user = denice
 
-            const aLotGton = expandTo18Decimals(10000)
-            await gton.transfer(user.address, aLotGton)
-            await gton.connect(user).approve(staking.address, aLotGton)
+            await dropALot(user)
 
-            const testAmount = expandTo18Decimals(200)
+            const testAmount = expandTo18Decimals(2000)
 
-            const stakingTS = await stakeAndWait(user, testAmount, time.year)
+            const stakeStart = await stakeAndWait(user, testAmount, time.year)
 
-            const balance = await staking.balanceOf(user.address)
-            console.log("Balance: " + balance.toString())
+            const stakeEnd = await getLastTS()
+
+            const totalStakingTime = stakeEnd - stakeStart
+            const expectedReward = await calculatePayout(testAmount, totalStakingTime)
+
+            console.log("Expected reward: " + expectedReward.toString())
+            await staking.connect(user).harvest(1)
+            const finalInfo = await staking.userInfo(user.address)
+            expect(finalInfo.accumulatedReward).to.be.closeTo(expectedReward, approximate)
+        })
+
+        it("after second user stakes a lot - first one gets correct payout", async () => {
+            const user = denice
+            const user2 = fedor
+
+            await dropALot(user)
+            await dropALot(user2)
+
+            const testAmount = expandTo18Decimals(2000)
+
+            await staking.connect(user).stake(testAmount, user.address)
+            const stakingTS = await getLastTS()
+
+            await setTimestamp(stakingTS + time.month)
+
+            await staking.connect(user2).stake(100000, user2.address)
+            const user2stakingTS = await getLastTS()
+            await setTimestamp(user2stakingTS + time.year - time.month)
 
             const finalTS = await getLastTS()
-
-            // await staking.attach(user.address).harvest(1)
-            await staking.attach(user.address).unstake(user.address, 1)
-
-            const finalReward = await staking.userInfo(user.address)
 
             const totalStakingTime = finalTS - stakingTS
             const expectedReward = await calculatePayout(testAmount, totalStakingTime)
 
             console.log("Expected reward: " + expectedReward.toString())
-            console.log("Real reward: " + finalReward.accumulatedReward.toString())
+            await staking.connect(user).harvest(1)
+            const finalInfo = await staking.userInfo(user.address)
+            expect(finalInfo.accumulatedReward).to.be.closeTo(expectedReward, approximate)
         })
 
         it("if no one farms there should be 0 income at any block after somebody got in, his APY should suite rules", async () => {
