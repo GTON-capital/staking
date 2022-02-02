@@ -2,7 +2,7 @@ import { waffle } from "hardhat"
 import { expect } from "chai"
 import { BigNumber, BigNumberish, constants, Contract, Wallet } from 'ethers'
 import { stakingFixture } from "./utilities/fixtures"
-import { mineBlocks, setTimestamp, expandTo18Decimals, time } from "./utilities/index"
+import { mineBlocks, timestampSetter, blockGetter, expandTo18Decimals, time } from "./utilities/index"
 
 import { ERC20 } from "../types/ERC20"
 import { Staking } from "../types/Staking"
@@ -12,7 +12,8 @@ describe("Staking", () => {
     const [wallet, admin0, admin1, alice, bob, denice, fedor, other] = waffle.provider.getWallets()
 
     let loadFixture: ReturnType<typeof waffle.createFixtureLoader>
-
+    const setTimestamp = timestampSetter(waffle.provider)
+    const getLastTS = blockGetter(waffle.provider, "timestamp")
     before("create fixture loader", async () => {
         loadFixture = waffle.createFixtureLoader([wallet, admin0, admin1, other], waffle.provider)
     })
@@ -48,7 +49,7 @@ describe("Staking", () => {
     }
 
     it("constructor initializes variables", async () => {
-        const lastBlock = (await waffle.provider.getBlock("latest")).timestamp
+        const lastBlock = await getLastTS()
         expect(await staking.admin()).to.eq(wallet.address)
         expect(await staking.amountStaked()).to.eq(0)
         expect(await staking.harvestInterval()).to.eq(86400)
@@ -109,7 +110,7 @@ describe("Staking", () => {
             await staking.setApr(item.apr);
             const prevAccRewardPerShare = await staking.accumulatedRewardPerShare();
             const lastChangeTS = await staking.lastRewardTimestamp();
-            await setTimestamp(waffle.provider, lastChangeTS.add(time.day).toNumber())
+            await setTimestamp(lastChangeTS.add(time.day).toNumber())
             await staking.updateRewardPool()
             const delta = (await staking.lastRewardTimestamp()).sub(lastChangeTS)
             const aprDenominator = await staking.aprDenominator();
@@ -127,7 +128,7 @@ describe("Staking", () => {
         const apr = await staking.aprBasisPoints();
         const aprDenominator = await staking.aprDenominator();
         const lastRewardTimestamp = await staking.lastRewardTimestamp()
-        const currentBlockTS = (await waffle.provider.getBlock("latest")).timestamp
+        const currentBlockTS = await getLastTS()
         const delta = BigNumber.from(currentBlockTS).add(sec).sub(lastRewardTimestamp)
         return calcDecimals.mul(delta).mul(apr).div(aprDenominator).div(time.year)
     }
@@ -210,8 +211,8 @@ describe("Staking", () => {
     async function harvest(user: Wallet, amount: BigNumberish) {
         await gton.approve(staking.address, amount)
         await staking.stake(amount, user.address)
-        const lastTS = (await waffle.provider.getBlock("latest")).timestamp
-        await setTimestamp(waffle.provider, lastTS + time.year)
+        const lastTS = await getLastTS()
+        await setTimestamp(lastTS + time.year)
         
         const stateBefore = await staking.userInfo(user.address);
         const currentAccRewPerShare = await staking.accumulatedRewardPerShare()
@@ -221,7 +222,7 @@ describe("Staking", () => {
 
         await staking.connect(user).harvest(rewardEarn)
         const stateAfter = await staking.userInfo(user.address)
-        expect(stateAfter.lastHarvestTimestamp).to.eq((await waffle.provider.getBlock("latest")).timestamp)
+        expect(stateAfter.lastHarvestTimestamp).to.eq(await getLastTS())
         expect(stateAfter.accumulatedReward).to.eq(0)
         expect(stateAfter.rewardDebt).to.eq(rewardDebt)
         expect(await gton.balanceOf(user.address)).to.eq(rewardEarn)
@@ -245,8 +246,8 @@ describe("Staking", () => {
         await gton.approve(staking.address, amount)
         await staking.stake(amount, bob.address)
 
-        const lastTS = (await waffle.provider.getBlock("latest")).timestamp
-        await setTimestamp(waffle.provider, lastTS+time.month)
+        const lastTS = await getLastTS()
+        await setTimestamp(lastTS+time.month)
         await staking.connect(bob).harvest(1)
         await expect(staking.connect(bob).harvest(1)).to.be.revertedWith("Staking: less than 24 hours since last harvest")
 
@@ -358,18 +359,18 @@ describe("Staking", () => {
         expect(receiverStateAfter.rewardDebt).to.eq(updReceiverRewardDebt)
     })
 
-    context("Apy checking", function () {
+    context("Apy checking", async function () {
 
         async function checkUserApy(user: Wallet, period: number, rounding: boolean = false) {
             const apr = await staking.aprBasisPoints()
             const aprDenominator = await staking.aprDenominator();
             const userState = await staking.userInfo(user.address);
-            const lastTS = BigNumber.from((await waffle.provider.getBlock("latest")).timestamp)
+            const lastTS = await getLastTS()
             const stake = userState.amount;
             const yearEarn = stake.mul(apr).div(aprDenominator);
             const earn = yearEarn.mul(period).div(time.year)
             const balanceBefore = await staking.balanceOf(user.address)
-            await setTimestamp(waffle.provider, lastTS.add(period).toNumber())
+            await setTimestamp(lastTS + period)
             if(rounding) {
                 expect(await staking.balanceOf(user.address)).to.be.closeTo(balanceBefore.add(earn), 100) // because of 1 block
             } else {
@@ -422,19 +423,19 @@ describe("Staking", () => {
         })
 
         it("if no one farms there should be 0 income at any block after somebody got in, his APY should suite rules", async () => {
-            checkUserApy(other, time.year); // 0 stake means that it will be zero stake for user
+            await checkUserApy(other, time.year); // 0 stake means that it will be zero stake for user
             const amount = expandTo18Decimals(180)
             await gton.approve(staking.address, amount)
             await staking.stake(amount, alice.address)
-            checkUserApy(alice, time.year);
+            await checkUserApy(alice, time.year);
         })
 
         it("Check rewardDelta with every second update", async () => {
             await fillUpStaking()
             const period = 100; // seconds
             const previousARPS = await staking.accumulatedRewardPerShare();
-            let lastTM = (await waffle.provider.getBlock("latest")).timestamp
-            await setTimestamp(waffle.provider, lastTM + period - 1); // -1 because of upcoming update reward poll txn
+            let lastTS = await getLastTS()
+            await setTimestamp(lastTS + period - 1); // -1 because of upcoming update reward poll txn
             await staking.updateRewardPool()
             const afterARPS = await staking.accumulatedRewardPerShare()
             const firstAPRS = (afterARPS).sub(previousARPS);
@@ -450,9 +451,19 @@ describe("Staking", () => {
             expect(secondAPRS).to.eq(firstAPRS)
         })
     })
-    context("Harvest cases", function () {
+    context("Harvest cases", async function () {
+
+        async function getRewardInNextBlock(user: Wallet) {
+
+        }
 
         it("harvest all with update", async () => {
+            const amount = expandTo18Decimals(150)
+            await gton.approve(staking.address, amount);
+            await staking.stake(amount, wallet.address)
+            const lastTS = await getLastTS()
+            await setTimestamp(lastTS + time.month)
+            await staking.updateRewardPool();
 
         })
     })
