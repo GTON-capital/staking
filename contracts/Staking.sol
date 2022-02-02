@@ -2,6 +2,7 @@
 pragma solidity 0.8.8;
 
 import "./interfaces/IERC20.sol";
+import "hardhat/console.sol";
 
 contract Staking is IERC20, IERC20Metadata {
 
@@ -173,6 +174,7 @@ contract Staking is IERC20, IERC20Metadata {
         user.lastHarvestTimestamp = block.timestamp;
         uint reward = calculateRewardForStake(user.amount);
         user.accumulatedReward += reward - user.rewardDebt;
+        console.log(reward);
         user.rewardDebt = reward;
 
         require(amount > 0, "Staking: Nothing to harvest");

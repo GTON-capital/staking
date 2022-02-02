@@ -28,9 +28,8 @@ describe("Staking", () => {
         } = await loadFixture(stakingFixture))
 
     })
-
-    const calcDecimals = BigNumber.from(1e12);
-
+    const approximate = 10000000000000;
+    const calcDecimals = BigNumber.from("1000000000000");
     async function fillUpStaking() {
         const fedorValue = BigNumber.from("974426000000")
         const deniceValue = BigNumber.from("1000000")
@@ -85,6 +84,7 @@ describe("Staking", () => {
         expect(await gton.balanceOf(staking.address)).to.eq(0)
         await expect(staking.withdrawToken(gton.address, other.address, amount.add(1))).to.be.reverted
     })
+
     const updRewardData = [
         {
             period: 100,
@@ -136,6 +136,22 @@ describe("Staking", () => {
         return calcDecimals.mul(delta).mul(apr).div(aprDenominator).div(time.year)
     }
 
+    async function getRewardInNextBlock(user: string, period: number = 1): Promise<BigNumber> {
+        const userInfo = await staking.userInfo(user);
+        const lastARPS = await staking.accumulatedRewardPerShare()
+        const updateARPS = await periodARPS(period);
+        const futureARPS = lastARPS.add(updateARPS);
+        return futureARPS.mul(userInfo.amount).div(calcDecimals).sub(userInfo.rewardDebt)
+    }
+
+    // should use stake with wei
+    async function getRewardByStake(stake: BigNumberish, period: number): Promise<BigNumber> {
+        const apr = await staking.aprBasisPoints()
+        const aprDenominator = await staking.aprDenominator();
+        const yearEarn = apr.mul(stake).div(aprDenominator);
+        return yearEarn.mul(period).div(time.year)
+    }
+
     async function stake(forUser: string, amount: BigNumberish) {
         const beforeAmountStaked = await staking.amountStaked()
         const beforeState = await staking.userInfo(forUser);
@@ -173,19 +189,21 @@ describe("Staking", () => {
     })
 
     async function unstake(user: Wallet, amount: BigNumberish) {
+        const rewards = await getRewardByStake(amount, 6)
+
         const amountStakedBefore = await staking.amountStaked()
         const currentAccRewPerShare = await staking.accumulatedRewardPerShare()
         const stateBefore = await staking.userInfo(user.address);
 
         const updateARPS = await periodARPS()
-        const rewardEarn = currentAccRewPerShare.add(updateARPS).mul(stateBefore.amount).div(calcDecimals).sub(stateBefore.rewardDebt);
         const rewardDebt = currentAccRewPerShare.add(updateARPS).mul(stateBefore.amount.sub(amount)).div(calcDecimals);
 
         await staking.connect(user).unstake(user.address, amount)
 
         const state = await staking.userInfo(user.address)
         expect(state.amount).to.eq(stateBefore.amount.sub(amount))
-        expect(state.accumulatedReward).to.eq(stateBefore.accumulatedReward.add(rewardEarn))
+        // because of earn difference between actual expectation with usual dividing and contracts math
+        expect(state.accumulatedReward).to.be.closeTo(rewards, approximate)
         expect(state.rewardDebt).to.eq(rewardDebt)
         expect(await staking.amountStaked()).to.eq(amountStakedBefore.sub(amount))
         expect(await staking.accumulatedRewardPerShare()).to.eq(currentAccRewPerShare.add(updateARPS))
@@ -215,7 +233,11 @@ describe("Staking", () => {
         await gton.approve(staking.address, amount)
         await staking.stake(amount, user.address)
         const lastTS = await getLastTS()
-        await setTimestamp(lastTS + time.year)
+        await setTimestamp(lastTS + time.year-1)
+
+        const rewardsAmount = await getRewardByStake(amount, time.year)
+        console.log("as");
+        console.log(rewardsAmount.toString());
         
         const stateBefore = await staking.userInfo(user.address);
         const currentAccRewPerShare = await staking.accumulatedRewardPerShare()
@@ -223,7 +245,9 @@ describe("Staking", () => {
         const rewardEarn = currentAccRewPerShare.add(updateARPS).mul(stateBefore.amount).div(calcDecimals).sub(stateBefore.rewardDebt);
         const rewardDebt = currentAccRewPerShare.add(updateARPS).mul(stateBefore.amount).div(calcDecimals);
 
-        await staking.connect(user).harvest(rewardEarn)
+        console.log(rewardEarn.toString());
+
+        await staking.connect(user).harvest(rewardsAmount)
         const stateAfter = await staking.userInfo(user.address)
         expect(stateAfter.lastHarvestTimestamp).to.eq(await getLastTS())
         expect(stateAfter.accumulatedReward).to.eq(0)
@@ -233,8 +257,7 @@ describe("Staking", () => {
 
     it("harvest", async () => {
         await fillUpStaking();
-
-        const amount = expandTo18Decimals(115)
+        const amount = expandTo18Decimals(112)
 
         await expect(staking.harvest(0)).to.be.revertedWith("Staking: Nothing to harvest")
         await expect(staking.harvest(amount.add(1))).to.be.revertedWith("Staking: Insufficient to harvest")
@@ -250,7 +273,7 @@ describe("Staking", () => {
         await staking.stake(amount, bob.address)
 
         const lastTS = await getLastTS()
-        await setTimestamp(lastTS+time.month)
+        await setTimestamp(lastTS + time.month)
         await staking.connect(bob).harvest(1)
         await expect(staking.connect(bob).harvest(1)).to.be.revertedWith("Staking: less than 24 hours since last harvest")
 
@@ -374,7 +397,7 @@ describe("Staking", () => {
             const earn = yearEarn.mul(period).div(time.year)
             const balanceBefore = await staking.balanceOf(user.address)
             await setTimestamp(lastTS + period)
-            if(rounding) {
+            if (rounding) {
                 expect(await staking.balanceOf(user.address)).to.be.closeTo(balanceBefore.add(earn), 100) // because of 1 block
             } else {
                 expect(await staking.balanceOf(user.address)).to.eq(balanceBefore.add(earn))
@@ -412,7 +435,7 @@ describe("Staking", () => {
             await gton.approve(staking.address, fedorAmount)
             await staking.stake(fedorAmount, fedor.address)
             await checkUserApy(fedor, time.halfYear, true)
-            
+
             await staking.setApr("1500") // balance update here
 
             await gton.approve(staking.address, fedorAmount)
@@ -433,10 +456,6 @@ describe("Staking", () => {
             await checkUserApy(alice, time.year);
         })
 
-        it("Check user incom with APR change", async () => {
-            
-        })
-
         it("Check rewardDelta with every second update", async () => {
             await fillUpStaking()
             const period = 100; // seconds
@@ -447,26 +466,48 @@ describe("Staking", () => {
             const afterARPS = await staking.accumulatedRewardPerShare()
             const firstAPRS = (afterARPS).sub(previousARPS);
             let i = 0;
-            while(i < period) {
+            while (i < period) {
                 await staking.updateRewardPool();
                 i++;
             }
             console.log("First APRS " + firstAPRS.toString());
-            
+
             const secondAPRS = (await staking.accumulatedRewardPerShare()).sub(afterARPS);
             console.log("Second APRS " + secondAPRS.toString());
             expect(secondAPRS).to.eq(firstAPRS)
         })
+        
+        it("Check user income with APR change", async () => {
+            const amount = expandTo18Decimals(380)
+            await gton.approve(staking.address, amount)
+            await staking.stake(amount, alice.address)
+            await setTimestamp(await getLastTS() + time.halfYear)
+            const firstPeriodReward = await getRewardByStake(amount, time.halfYear+1)
+
+            await setTimestamp(await getLastTS() + time.halfYear)
+            const secondPeriodReward = (await getRewardByStake(amount, time.halfYear - 1))
+            // succeed harvest signifies the 
+            await staking.connect(alice).harvest(firstPeriodReward.add(secondPeriodReward))
+            // balance of alice - only staking amount without any reward
+            expect(await staking.balanceOf(alice.address)).to.be.closeTo(amount, approximate)
+        })
+
+        it("Check user income with stake balance change", async () => {
+            // const amount = expandTo18Decimals(380)
+            // await gton.approve(staking.address, amount)
+            // await staking.stake(amount, alice.address)
+            // await setTimestamp(await getLastTS() + time.halfYear)
+            // const firstPeriodReward = await getRewardInNextBlock(alice.address, 0)
+            // console.log((await staking.balanceOf(alice.address)).sub(amount).toString());
+            // console.log(firstPeriodReward.toString());
+
+            // await staking.setApr(4000)
+            // await setTimestamp(await getLastTS() + time.halfYear)
+            // const secondPeriodReward = await getRewardInNextBlock(alice.address)
+
+        })
     })
     context("Harvest cases", async function () {
-
-        async function getRewardInNextBlock(user: string): Promise<BigNumber> {
-            const userInfo = await staking.userInfo(user);
-            const lastARPS = await staking.accumulatedRewardPerShare()
-            const updateARPS = await periodARPS();
-            const futureARPS = lastARPS.add(updateARPS);
-            return futureARPS.mul(userInfo.amount).div(calcDecimals).sub(userInfo.rewardDebt)
-        }
 
         it("harvest all", async () => {
             const amount = expandTo18Decimals(150)
@@ -476,7 +517,7 @@ describe("Staking", () => {
             const lastTS = await getLastTS()
             await setTimestamp(lastTS + time.month)
             const reward = await getRewardInNextBlock(wallet.address);
-            
+
             expect((await staking.userInfo(wallet.address)).accumulatedReward).to.eq(0);
             await staking.harvest(reward)
             expect(await staking.balanceOf(wallet.address)).to.eq(amount)
