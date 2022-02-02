@@ -1,12 +1,11 @@
 import { waffle } from "hardhat"
 import { expect } from "chai"
-import { BigNumber, BigNumberish, constants, Contract, Wallet } from 'ethers'
+import { BigNumber, BigNumberish, Wallet } from 'ethers'
 import { stakingFixture } from "./utilities/fixtures"
 import { mineBlocks, timestampSetter, blockGetter, expandTo18Decimals, time } from "./utilities/index"
 
 import { ERC20 } from "../types/ERC20"
 import { Staking } from "../types/Staking"
-import { userInfo } from "os"
 
 
 describe("Staking", () => {
@@ -463,7 +462,7 @@ describe("Staking", () => {
             return lastTS
         }
 
-        it.only("after one stake user gets correct payout", async () => {
+        it("after one stake user gets correct payout", async () => {
             const user = denice
 
             const aLotGton = expandTo18Decimals(10000)
@@ -517,7 +516,7 @@ describe("Staking", () => {
 
             const secondAPRS = (await staking.accumulatedRewardPerShare()).sub(afterARPS);
             console.log("Second APRS " + secondAPRS.toString());
-            expect(secondAPRS).to.eq(firstAPRS)
+            expect(secondAPRS).to.be.closeTo(firstAPRS, 2)
         })
         
         it("Check user income with APR change", async () => {
@@ -526,12 +525,13 @@ describe("Staking", () => {
             await staking.stake(amount, alice.address)
             await setTimestamp(await getLastTS() + time.halfYear)
             const firstPeriodReward = await getRewardByStake(amount, time.halfYear+1)
+            await staking.setApr(4000);
 
             await setTimestamp(await getLastTS() + time.halfYear)
-            const secondPeriodReward = (await getRewardByStake(amount, time.halfYear - 1))
+            const secondPeriodReward = (await getRewardByStake(amount, time.halfYear + 1))
             // succeed harvest signifies the 
-            await staking.connect(alice).harvest(firstPeriodReward.add(secondPeriodReward))
-            // balance of alice - only staking amount without any reward
+            await staking.connect(alice).harvest(firstPeriodReward.add(secondPeriodReward).sub(approximate))
+            // balance of alice - only staking amount 
             expect(await staking.balanceOf(alice.address)).to.be.closeTo(amount, approximate)
         })
 
@@ -540,11 +540,9 @@ describe("Staking", () => {
             // await gton.approve(staking.address, amount)
             // await staking.stake(amount, alice.address)
             // await setTimestamp(await getLastTS() + time.halfYear)
-            // const firstPeriodReward = await getRewardInNextBlock(alice.address, 0)
-            // console.log((await staking.balanceOf(alice.address)).sub(amount).toString());
-            // console.log(firstPeriodReward.toString());
-
-            // await staking.setApr(4000)
+            // const firstPeriodReward = await getRewardByStake(amount, time.halfYear+1)
+            // await gton.approve(staking.address, amount)
+            // await staking.stake(amount, alice.address)
             // await setTimestamp(await getLastTS() + time.halfYear)
             // const secondPeriodReward = await getRewardInNextBlock(alice.address)
 
