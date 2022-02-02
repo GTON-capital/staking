@@ -156,13 +156,14 @@ contract Staking is IERC20, IERC20Metadata {
     function stake(uint amount, address to) external whenNotPaused {
         updateRewardPool();
         require(amount > 0, "Staking: Nothing to deposit");
-        require(stakingToken.transferFrom(msg.sender,address(this),amount),"");
+        require(stakingToken.transferFrom(msg.sender, address(this), amount), "Staking: transfer failed");
 
         UserInfo storage user = userInfo[to];
         user.accumulatedReward += calculateRewardForStake(user.amount) - user.rewardDebt;
         amountStaked += amount;
         user.amount += amount;
         user.rewardDebt = calculateRewardForStake(user.amount);
+        emit Transfer(address(0), to, amount);
     }
 
     function harvest(uint256 amount) public whenNotPaused {
@@ -178,7 +179,7 @@ contract Staking is IERC20, IERC20Metadata {
         require(amount > 0, "Staking: Nothing to harvest");
         require(amount <= user.accumulatedReward, "Staking: Insufficient to harvest");
         user.accumulatedReward -= amount;
-        require(stakingToken.transfer(msg.sender,amount),"");
+        require(stakingToken.transfer(msg.sender, amount), "Staking: transfer failed");
     }
 
     function unstake(address to, uint256 amount) public whenNotPaused {
@@ -192,7 +193,8 @@ contract Staking is IERC20, IERC20Metadata {
         user.amount -= amount;
         user.rewardDebt = calculateRewardForStake(user.amount);
 
-        require(stakingToken.transfer(to,amount),"Staking: Not enough token to transfer");
+        require(stakingToken.transfer(to, amount), "Staking: Not enough token to transfer");
+        emit Transfer(to, address(0), amount);
     }
 
     /* ========== RESTRICTED FUNCTIONS ========== */
