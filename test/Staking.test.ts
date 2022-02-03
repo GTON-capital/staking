@@ -9,13 +9,13 @@ import { Staking } from "../types/Staking"
 
 
 describe("Staking", () => {
-    const [wallet, admin0, admin1, alice, bob, denice, fedor, other] = waffle.provider.getWallets()
+    const [wallet, katy, alex, alice, bob, denice, fedor, other] = waffle.provider.getWallets()
 
     let loadFixture: ReturnType<typeof waffle.createFixtureLoader>
     const setTimestamp = timestampSetter(waffle.provider)
     const getLastTS = blockGetter(waffle.provider, "timestamp")
     before("create fixture loader", async () => {
-        loadFixture = waffle.createFixtureLoader([wallet, admin0, admin1, other], waffle.provider)
+        loadFixture = waffle.createFixtureLoader([wallet, other], waffle.provider)
     })
 
     let gton: ERC20
@@ -27,7 +27,7 @@ describe("Staking", () => {
         } = await loadFixture(stakingFixture))
 
     })
-    const approximate = 10000000000000;
+    const approximate = 100000000000000;
 
     async function fillUpStaking() {
         const fedorValue = BigNumber.from("974426000000")
@@ -77,7 +77,7 @@ describe("Staking", () => {
         gton.transfer(staking.address, amount)
         await expect(staking.connect(other).withdrawToken(gton.address, wallet.address, amount)).to.be.revertedWith('Staking: permitted to admin only')
         // expect admin to fail to withdraw
-        await expect(staking.connect(admin0).withdrawToken(gton.address, wallet.address, amount)).to.be.revertedWith('Staking: permitted to admin only')
+        await expect(staking.connect(katy).withdrawToken(gton.address, wallet.address, amount)).to.be.revertedWith('Staking: permitted to admin only')
         await staking.withdrawToken(gton.address, other.address, amount)
         expect(await gton.balanceOf(other.address)).to.eq(amount)
         expect(await gton.balanceOf(staking.address)).to.eq(0)
@@ -102,6 +102,12 @@ describe("Staking", () => {
             apr: BigNumber.from("900"),
             amount: expandTo18Decimals(54000),
             user: other,
+        },
+        {
+            period: 5000,
+            apr: BigNumber.from("2500"),
+            amount: expandTo18Decimals(540000),
+            user: katy,
         },
     ]
 
@@ -256,7 +262,7 @@ describe("Staking", () => {
         await staking.connect(bob).harvest(1)
         await expect(staking.connect(bob).harvest(1)).to.be.revertedWith("Staking: less than 24 hours since last harvest")
 
-        await harvest(admin0, amount)
+        await harvest(alex, amount)
 
     })
 
@@ -356,7 +362,7 @@ describe("Staking", () => {
             const balanceBefore = await staking.balanceOf(user.address)
             await setTimestamp(lastTS + period)
             if (rounding) {
-                expect(await staking.balanceOf(user.address)).to.be.closeTo(balanceBefore.add(earn), 100) // because of 1 block
+                expect(await staking.balanceOf(user.address)).to.be.closeTo(balanceBefore.add(earn), approximate)
             } else {
                 expect(await staking.balanceOf(user.address)).to.eq(balanceBefore.add(earn))
             }
@@ -380,7 +386,7 @@ describe("Staking", () => {
                     await staking.setApr(i.apr)
                     await gton.approve(staking.address, i.amount);
                     await staking.stake(i.amount, i.user.address)
-                    await checkUserApy(i.user, period)
+                    await checkUserApy(i.user, period, true)
                     // need to return back to save funds for future tests
                     await staking.connect(i.user).unstake(wallet.address, i.amount)
                 }
