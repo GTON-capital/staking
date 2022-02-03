@@ -27,7 +27,7 @@ describe("Staking", () => {
         } = await loadFixture(stakingFixture))
 
     })
-    const approximate = 100000000000000;
+    const approximate = 200000000000000;
 
     async function fillUpStaking() {
         const fedorValue = BigNumber.from("974426000000")
