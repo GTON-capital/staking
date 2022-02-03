@@ -2,7 +2,6 @@
 pragma solidity 0.8.8;
 
 import "./interfaces/IERC20.sol";
-import "hardhat/console.sol";
 
 contract Staking is IERC20, IERC20Metadata {
 
@@ -24,7 +23,7 @@ contract Staking is IERC20, IERC20Metadata {
     uint public immutable harvestInterval;
     uint8 public immutable decimals;
 
-    uint public constant calcDecimals = 1e12;
+    uint public constant calcDecimals = 1e14;
     uint public constant secondsInYear = 31557600;
     uint public constant aprDenominator = 10000;
 
@@ -175,7 +174,6 @@ contract Staking is IERC20, IERC20Metadata {
         user.lastHarvestTimestamp = block.timestamp;
         uint reward = calculateRewardForStake(user.amount);
         user.accumulatedReward += reward - user.rewardDebt;
-        console.log(reward);
         user.rewardDebt = reward;
 
         require(amount > 0, "Staking: Nothing to harvest");

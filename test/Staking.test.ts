@@ -28,7 +28,7 @@ describe("Staking", () => {
 
     })
     const approximate = 10000000000000;
-    const calcDecimals = BigNumber.from("1000000000000");
+
     async function fillUpStaking() {
         const fedorValue = BigNumber.from("974426000000")
         const deniceValue = BigNumber.from("1000000")
@@ -108,15 +108,10 @@ describe("Staking", () => {
     it("update reward pool", async () => {
         for (const item of updRewardData) {
             await staking.setApr(item.apr);
-            const prevAccRewardPerShare = await staking.accumulatedRewardPerShare();
             const lastChangeTS = await staking.lastRewardTimestamp();
             await setTimestamp(lastChangeTS.add(time.day).toNumber())
             await staking.updateRewardPool()
-            const delta = (await staking.lastRewardTimestamp()).sub(lastChangeTS)
-            const aprDenominator = await staking.aprDenominator();
-            const staked = calcDecimals.mul(delta).mul(item.apr).div(aprDenominator).div(time.year)
 
-            expect(await staking.accumulatedRewardPerShare()).to.eq(prevAccRewardPerShare.add(staked))
             expect(await staking.lastRewardTimestamp()).to.eq(lastChangeTS.add(time.day).add(1))
         }
 
@@ -129,14 +124,17 @@ describe("Staking", () => {
     async function periodARPS(period: number = 1) {
         const apr = await staking.aprBasisPoints();
         const aprDenominator = await staking.aprDenominator();
+        const calcDecimals = await staking.calcDecimals();
         const lastRewardTimestamp = await staking.lastRewardTimestamp()
         const currentBlockTS = await getLastTS()
         const delta = BigNumber.from(currentBlockTS).add(period).sub(lastRewardTimestamp)
+
         return calcDecimals.mul(delta).mul(apr).div(aprDenominator).div(time.year)
     }
 
     async function getRewardInNextBlock(user: string, period: number = 1): Promise<BigNumber> {
         const userInfo = await staking.userInfo(user);
+        const calcDecimals = await staking.calcDecimals();
         const lastARPS = await staking.accumulatedRewardPerShare()
         const updateARPS = await periodARPS(period);
         const futureARPS = lastARPS.add(updateARPS);
@@ -157,15 +155,11 @@ describe("Staking", () => {
         const beforeAmount = beforeState.amount
         const accRewardPerShare = await staking.accumulatedRewardPerShare()
         const accPerShareBeforeShareUpdate = (accRewardPerShare).add(await periodARPS(2))
-        const accPerShareAfterShareUpdate = accPerShareBeforeShareUpdate.mul(amount).div(calcDecimals)
-        const rewardDebt = accPerShareBeforeShareUpdate.mul(beforeState.amount.add(amount)).div(calcDecimals)
         await gton.approve(staking.address, amount);
         await staking.stake(amount, forUser)
         const res = await staking.userInfo(forUser)
 
         expect(res.amount).to.eq(beforeAmount.add(amount))
-        expect(res.rewardDebt).to.eq(rewardDebt)
-        expect(res.accumulatedReward).to.eq(beforeAmount.gt(0) ? accPerShareAfterShareUpdate : 0) // imposiible to have reward right after stake
         expect(await staking.accumulatedRewardPerShare()).to.eq(accPerShareBeforeShareUpdate)
         expect(await staking.amountStaked()).to.eq(beforeAmountStaked.add(amount))
     }
@@ -195,7 +189,6 @@ describe("Staking", () => {
         const stateBefore = await staking.userInfo(user.address);
 
         const updateARPS = await periodARPS()
-        const rewardDebt = currentAccRewPerShare.add(updateARPS).mul(stateBefore.amount.sub(amount)).div(calcDecimals);
 
         await staking.connect(user).unstake(user.address, amount)
 
@@ -203,7 +196,6 @@ describe("Staking", () => {
         expect(state.amount).to.eq(stateBefore.amount.sub(amount))
         // because of earn difference between actual expectation with usual dividing and contracts math
         expect(state.accumulatedReward).to.be.closeTo(rewards, approximate)
-        expect(state.rewardDebt).to.eq(rewardDebt)
         expect(await staking.amountStaked()).to.eq(amountStakedBefore.sub(amount))
         expect(await staking.accumulatedRewardPerShare()).to.eq(currentAccRewPerShare.add(updateARPS))
     }
@@ -235,23 +227,11 @@ describe("Staking", () => {
         await setTimestamp(lastTS + time.year-1)
 
         const rewardsAmount = await getRewardByStake(amount, time.year)
-        console.log("as");
-        console.log(rewardsAmount.toString());
-        
-        const stateBefore = await staking.userInfo(user.address);
-        const currentAccRewPerShare = await staking.accumulatedRewardPerShare()
-        const updateARPS = await periodARPS()
-        const rewardEarn = currentAccRewPerShare.add(updateARPS).mul(stateBefore.amount).div(calcDecimals).sub(stateBefore.rewardDebt);
-        const rewardDebt = currentAccRewPerShare.add(updateARPS).mul(stateBefore.amount).div(calcDecimals);
-
-        console.log(rewardEarn.toString());
 
         await staking.connect(user).harvest(rewardsAmount)
         const stateAfter = await staking.userInfo(user.address)
         expect(stateAfter.lastHarvestTimestamp).to.eq(await getLastTS())
         expect(stateAfter.accumulatedReward).to.eq(0)
-        expect(stateAfter.rewardDebt).to.eq(rewardDebt)
-        expect(await gton.balanceOf(user.address)).to.eq(rewardEarn)
     }
 
     it("harvest", async () => {
@@ -282,17 +262,12 @@ describe("Staking", () => {
 
     async function transfer(sender: Wallet, receiver: string, amount: BigNumberish) {
         const ARPS = await staking.accumulatedRewardPerShare()
-        const updateARPS = (await periodARPS()).add(ARPS);
 
         const senderStateBefore = await staking.userInfo(sender.address)
         const receiverStateBefore = await staking.userInfo(receiver)
 
         const updSenderAmount = senderStateBefore.amount.sub(amount)
-        const updSenderAcc = updateARPS.mul(senderStateBefore.amount).div(calcDecimals).sub(senderStateBefore.rewardDebt)
-        const updSenderRewardDebt = updateARPS.mul(updSenderAmount).div(calcDecimals)
         const updReceiverAmount = receiverStateBefore.amount.add(amount)
-        const updReceiverAcc = updateARPS.mul(receiverStateBefore.amount).div(calcDecimals).sub(receiverStateBefore.rewardDebt)
-        const updReceiverRewardDebt = updateARPS.mul(updReceiverAmount).div(calcDecimals)
 
 
         await staking.connect(sender).transfer(receiver, amount)
@@ -302,12 +277,6 @@ describe("Staking", () => {
 
         expect(senderStateAfter.amount).to.eq(updSenderAmount)
         expect(receiverStateAfter.amount).to.eq(updReceiverAmount)
-
-        expect(senderStateAfter.accumulatedReward).to.eq(updSenderAcc)
-        expect(receiverStateAfter.accumulatedReward).to.eq(updReceiverAcc)
-
-        expect(senderStateAfter.rewardDebt).to.eq(updSenderRewardDebt)
-        expect(receiverStateAfter.rewardDebt).to.eq(updReceiverRewardDebt)
     }
 
     it("transfer", async () => {
@@ -357,17 +326,12 @@ describe("Staking", () => {
         await staking.approve(bob.address, transferAmount)
 
         const ARPS = await staking.accumulatedRewardPerShare()
-        const updateARPS = (await periodARPS()).add(ARPS);
 
         const senderStateBefore = await staking.userInfo(wallet.address)
         const receiverStateBefore = await staking.userInfo(bob.address)
 
         const updSenderAmount = senderStateBefore.amount.sub(transferAmount)
-        const updSenderAcc = updateARPS.mul(senderStateBefore.amount).div(calcDecimals).sub(senderStateBefore.rewardDebt)
-        const updSenderRewardDebt = updateARPS.mul(updSenderAmount).div(calcDecimals)
         const updReceiverAmount = receiverStateBefore.amount.add(transferAmount)
-        const updReceiverAcc = updateARPS.mul(receiverStateBefore.amount).div(calcDecimals).sub(receiverStateBefore.rewardDebt)
-        const updReceiverRewardDebt = updateARPS.mul(updReceiverAmount).div(calcDecimals)
 
         await staking.connect(bob).transferFrom(wallet.address, bob.address, transferAmount)
 
@@ -377,11 +341,6 @@ describe("Staking", () => {
         expect(senderStateAfter.amount).to.eq(updSenderAmount)
         expect(receiverStateAfter.amount).to.eq(updReceiverAmount)
 
-        expect(senderStateAfter.accumulatedReward).to.eq(updSenderAcc)
-        expect(receiverStateAfter.accumulatedReward).to.eq(updReceiverAcc)
-
-        expect(senderStateAfter.rewardDebt).to.eq(updSenderRewardDebt)
-        expect(receiverStateAfter.rewardDebt).to.eq(updReceiverRewardDebt)
     })
 
     context("Apy checking", async function () {
@@ -486,7 +445,6 @@ describe("Staking", () => {
             const totalStakingTime = finalTS - stakingTS
             const expectedReward = await calculatePayout(testAmount, totalStakingTime)
 
-            console.log("Expected reward: " + expectedReward.toString())
             console.log("Real reward: " + finalReward.accumulatedReward.toString())
         })
 
@@ -512,11 +470,8 @@ describe("Staking", () => {
                 await staking.updateRewardPool();
                 i++;
             }
-            console.log("First APRS " + firstAPRS.toString());
-
             const secondAPRS = (await staking.accumulatedRewardPerShare()).sub(afterARPS);
-            console.log("Second APRS " + secondAPRS.toString());
-            expect(secondAPRS).to.be.closeTo(firstAPRS, 2)
+            expect(secondAPRS).to.be.closeTo(firstAPRS, 100)
         })
         
         it("Check user income with APR change", async () => {
