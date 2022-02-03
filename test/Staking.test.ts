@@ -428,7 +428,7 @@ describe("Staking", () => {
         }
 
         async function dropALot(user: Wallet) {
-            const aLotGton = expandTo18Decimals(100000)
+            const aLotGton = expandTo18Decimals(1000000)
             await gton.transfer(user.address, aLotGton)
             await gton.connect(user).approve(staking.address, aLotGton)
         }
@@ -447,7 +447,6 @@ describe("Staking", () => {
             const totalStakingTime = stakeEnd - stakeStart
             const expectedReward = await calculatePayout(testAmount, totalStakingTime)
 
-            console.log("Expected reward: " + expectedReward.toString())
             await staking.connect(user).harvest(1)
             const finalInfo = await staking.userInfo(user.address)
             expect(finalInfo.accumulatedReward).to.be.closeTo(expectedReward, approximate)
@@ -460,14 +459,14 @@ describe("Staking", () => {
             await dropALot(user)
             await dropALot(user2)
 
-            const testAmount = expandTo18Decimals(2000)
+            const testAmount = expandTo18Decimals(20000)
 
             await staking.connect(user).stake(testAmount, user.address)
             const stakingTS = await getLastTS()
 
             await setTimestamp(stakingTS + time.month)
 
-            await staking.connect(user2).stake(100000, user2.address)
+            await staking.connect(user2).stake(1000000, user2.address)
             const user2stakingTS = await getLastTS()
             await setTimestamp(user2stakingTS + time.year - time.month)
 
@@ -476,7 +475,6 @@ describe("Staking", () => {
             const totalStakingTime = finalTS - stakingTS
             const expectedReward = await calculatePayout(testAmount, totalStakingTime)
 
-            console.log("Expected reward: " + expectedReward.toString())
             await staking.connect(user).harvest(1)
             const finalInfo = await staking.userInfo(user.address)
             expect(finalInfo.accumulatedReward).to.be.closeTo(expectedReward, approximate)
