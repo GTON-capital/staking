@@ -56,12 +56,12 @@ const config: HardhatUserConfig = {
     },
   },
   networks: {
-    mainnet: {
+  /*  mainnet: {
       url: `https://mainnet.infura.io/v3/${process.env.INFURA_API_KEY}`,
       accounts,
       gasPrice: 120 * 1000000000,
       chainId: 1,
-    },
+    }, */
     localhost: {
       live: false,
       saveDeployments: true,
@@ -76,6 +76,7 @@ const config: HardhatUserConfig = {
       saveDeployments: true,
       tags: ["test", "local"],
     },
+   /*
     ropsten: {
       url: `https://ropsten.infura.io/v3/${process.env.INFURA_API_KEY}`,
       accounts,
@@ -290,7 +291,7 @@ const config: HardhatUserConfig = {
       chainId: 1024,
       live: true,
       saveDeployments: true,
-    },
+    }, */
   },
   paths: {
     artifacts: "artifacts",
