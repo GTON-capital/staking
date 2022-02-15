@@ -1,8 +1,74 @@
+// Sources flattened with hardhat v2.8.2 https://hardhat.org
+
+// File contracts/interfaces/IERC20.sol
+
+// SPDX-License-Identifier: MIT
+pragma solidity >=0.8.0;
+
+interface IERC20 {
+    function totalSupply() external view returns (uint256);
+    function decimals() external view returns (uint256);
+    function name() external view returns (string memory);
+    function symbol() external view returns (string memory);
+    function balanceOf(address account) external view returns (uint256);
+    function allowance(address owner, address spender) external view returns (uint256);
+    function approve(address spender, uint256 amount) external returns (bool);
+    event Transfer(address indexed from, address indexed to, uint256 value);
+    event Approval(address indexed owner, address indexed spender, uint256 value);
+    function transferFrom(address _from, address _to, uint256 _value) external returns (bool success);
+    function transfer(address _to, uint256 _value) external returns (bool success);
+}
+
+
+// File contracts/libraries/AddressArrayLibrary.sol
+
+
+pragma solidity >=0.8.0;
+
+library AddressArrayLib {
+
+    function removeItem(
+        address[] storage array,
+        address a
+    ) internal {
+        int i = indexOf(array, a);
+        require(i != -1, "ARRAY_LIB: Element doesn't exist");
+        remove(array, uint(i));
+    }
+
+    function remove(      
+        address[] storage array,
+        uint index
+    ) internal {
+        require(index <= array.length, "ARRAY_LIB: Index does not exist");
+        array[index] = array[array.length-1];
+        array.pop();
+    }
+
+
+    // probably not the best way to find index
+    function indexOf(
+        address[] storage array,
+        address a
+    ) internal view returns (int) {
+        if (array.length == 0) return int(-1); // we want to continue txn process
+        for(uint i=0; i<array.length; i++) {
+            if (array[i] == a) {
+                return int(i);
+            }
+        }
+        return int(-1);
+    }
+}
+
+
+// File contracts/CompoundStaking.sol
+
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.8;
 
-import "./interfaces/IERC20.sol";
-import "./libraries/AddressArrayLibrary.sol";
+
+//import "hardhat/console.sol";
 
 contract CompoundStaking is IERC20 {
     string public name;
@@ -36,7 +102,8 @@ contract CompoundStaking is IERC20 {
         string memory _name,
         string memory _symbol,
         uint _apyUp,
-        uint _apyDown
+        uint _apyDown,
+        address[] memory admins
     ) {
         owner = msg.sender;
         token = _token;
@@ -47,6 +114,7 @@ contract CompoundStaking is IERC20 {
         symbol = _symbol;
         apyUp = _apyUp;
         apyDown = _apyDown;
+        lpAdmins = admins;
     }
 
     modifier notReverted() {
@@ -61,7 +129,7 @@ contract CompoundStaking is IERC20 {
 
     modifier onlyAdmin() {
         require(msg.sender==owner || AddressArrayLib.indexOf(lpAdmins, msg.sender) != -1, 
-            "Compound: permitted to admins only");
+            "Compound: permitted to admins only.");
         _;
     }
 
@@ -83,11 +151,11 @@ contract CompoundStaking is IERC20 {
     }
 
     function shareToBalance(uint _share) public view returns(uint) { 
-        return _share * requiredBalance / totalShares;
+        return _share * totalSupply() / totalShares;
     }
 
     function balanceToShare(uint _balance) public view returns(uint) { 
-        return _balance * totalShares / requiredBalance;
+        return _balance * totalShares / totalSupply();
     }
 
     function setAdmins(address[] memory admins) public onlyOwner {
@@ -103,6 +171,7 @@ contract CompoundStaking is IERC20 {
     }
 
     function setApy(uint _apyUp, uint _apyDown) public onlyAdmin {
+        updateRewardPool();
         uint oldDown = apyDown;
         uint oldUp = apyUp;
         apyUp = _apyUp;
@@ -146,7 +215,7 @@ contract CompoundStaking is IERC20 {
         emit Approval(_owner, spender, amount);
     }
 
-    function approve(address spender, uint amount) public virtual override returns (bool) {
+    function approve(address spender, uint amount) public notReverted virtual override returns (bool) {
         _approve(msg.sender, spender, amount);
         return true;
     }
@@ -159,15 +228,16 @@ contract CompoundStaking is IERC20 {
         require(sender != address(0), "ERC20: transfer from the zero address");
         require(recipient != address(0), "ERC20: transfer to the zero address");
 
-        uint shareToTransfer = balanceToShare(amount);
-        require(userInfo[sender].share >= shareToTransfer, "ERC20: transfer amount exceeds balance");
-        userInfo[sender].share -= shareToTransfer;
-        userInfo[recipient].share += shareToTransfer;
+        uint transferShareUnit = balanceToShare(amount);
+        require(userInfo[sender].share >= transferShareUnit, "ERC20: transfer amount exceeds balance");
+        userInfo[sender].share -= transferShareUnit;
+        userInfo[recipient].share += transferShareUnit;
 
         emit Transfer(sender, recipient, amount);
     }
 
-    function transfer(address recipient, uint256 amount) public virtual override returns (bool) {
+    function transfer(address recipient, uint256 amount) public notReverted virtual override returns (bool) {
+        updateRewardPool();
         _transfer(msg.sender, recipient, amount);
         return true;
     }
@@ -175,7 +245,7 @@ contract CompoundStaking is IERC20 {
     function transferShare(
         address to,
         uint share
-    ) public {
+    ) public notReverted {
         require(userInfo[msg.sender].share >= share, "insufficent balance");
         userInfo[msg.sender].share -= share;
         userInfo[to].share += share;
@@ -187,7 +257,8 @@ contract CompoundStaking is IERC20 {
         address spender,
         address recipient,
         uint256 amount
-    ) public virtual override returns (bool) {
+    ) public notReverted virtual override returns (bool) {
+        updateRewardPool();
         _transfer(spender, recipient, amount);
         uint256 currentAllowance = allowances[spender][msg.sender];
         require(currentAllowance >= amount, "ERC20: transfer amount exceeds allowance");
@@ -195,7 +266,7 @@ contract CompoundStaking is IERC20 {
         return true;
     }
 
-    function updateRewardPool() public {
+    function updateRewardPool() public notReverted {
         uint tokenPerBlock = apyUp * requiredBalance / apyDown / blocksInYear;
         uint delta = block.number - lastRewardBlock;
         uint potentialMint = delta * tokenPerBlock;
@@ -204,7 +275,7 @@ contract CompoundStaking is IERC20 {
         lastRewardBlock = block.number;
     }
 
-    function mint(uint _amount, address _to) external {
+    function mint(uint _amount, address _to) external notReverted {
         updateRewardPool();
         require(_amount > 0, "Compound: Nothing to deposit");
         require(token.transferFrom(msg.sender,address(this),_amount),"");
@@ -222,7 +293,7 @@ contract CompoundStaking is IERC20 {
         emit Transfer(address(0), _to, _amount);
     }
 
-    function burn(address _to, uint256 _share) public {
+    function burn(address _to, uint256 _share) public notReverted {
         updateRewardPool();
         require(_share > 0, "Compound: Nothing to burn");
 

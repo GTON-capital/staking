@@ -8,7 +8,7 @@ export const ADDRESS_ZERO = "0x0000000000000000000000000000000000000000"
 export function getBigNumber(amount: string | number | BigNumber, decimals = 18) {
   return BigNumber.from(amount).mul(BigNumber.from(BASE_TEN).pow(decimals))
 }
-export function expandTo18Decimals(n: number): BigNumber {
+export function expandTo18Decimals(n: BigNumberish): BigNumber {
   return BigNumber.from(n).mul(BigNumber.from(10).pow(18))
 }
 export async function mineBlocks(provider: any, blocks: number): Promise<void> {
@@ -17,5 +17,18 @@ export async function mineBlocks(provider: any, blocks: number): Promise<void> {
       blocks -= 1
   }
 } 
+
+export const timestampSetter: (provider: any) => (timestamp: number) => Promise<void>  = 
+  (provider) => async (timestamp: number) =>  await provider.send("evm_mine", [timestamp])
+
+export const blockGetter: (provider: any, type: string) => () => Promise<number>  = 
+  (provider, type) => async () =>  (await provider.getBlock("latest"))[type]
+
+export const time = {
+  year: 31557600,
+  halfYear: 15778800,
+  month: 2629800,
+  day: 60*60*24,
+}
 
 export * from "./time"
