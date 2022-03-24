@@ -5,6 +5,18 @@ import "./IERC20.sol";
 
 interface IStaking is IERC20, IERC20Metadata {
 
+     /* ========== CONSTANTS ========== */
+
+    function calcDecimals() external returns (uint);
+
+    function secondsInYear() external returns (uint);
+
+    function aprDenominator() external returns (uint);
+
+    /* ========== STATE VARIABLES ========== */
+
+    function aprBasisPoints() external returns (uint);
+
     /* ========== MUTATIVE FUNCTIONS ========== */
 
     function updateRewardPool() external;
