@@ -7,15 +7,15 @@ interface IStaking is IERC20, IERC20Metadata {
 
      /* ========== CONSTANTS ========== */
 
-    function calcDecimals() external returns (uint);
+    function calcDecimals() external view returns (uint);
 
-    function secondsInYear() external returns (uint);
+    function secondsInYear() external view returns (uint);
 
-    function aprDenominator() external returns (uint);
+    function aprDenominator() external view returns (uint);
 
     /* ========== STATE VARIABLES ========== */
 
-    function aprBasisPoints() external returns (uint);
+    function aprBasisPoints() external view returns (uint);
 
     /* ========== MUTATIVE FUNCTIONS ========== */
 
