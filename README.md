@@ -14,5 +14,11 @@ npm i
 npx hardhat test
 ```
 ---
+## Deploy
+Example testnet deploy:
+```
+npx hardhat run --network ftmTestnet scripts/deployStaking.js
+```
+
 ## Contracts
 Staking.sol - $GTON token compound staking

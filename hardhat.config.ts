@@ -5,7 +5,13 @@ import { resolve } from "path";
 import { config as dotenvConfig } from "dotenv";
 dotenvConfig({ path: resolve(__dirname, "./.env") });
 
-const { PRIVATE_KEY, ETHERSCAN, POLYGONSCAN, FTMSCAN } = process.env;
+const { 
+  PRIVATE_KEY, 
+  ETHERSCAN, 
+  POLYGONSCAN, 
+  FTMSCAN, 
+  INFURA_API_KEY 
+} = process.env;
 
 module.exports = {
   abiExporter: {
@@ -18,14 +24,8 @@ module.exports = {
     localhost: {
       url: "http://127.0.0.1:8545",
     },
-    hardhat: {
-      forking: {
-        enabled: process.env.FORKING === "true",
-        url: `https://eth-mainnet.alchemyapi.io/v2/${process.env.ALCHEMY_API_KEY}`,
-      },
-    },
     mainnet: {
-      url: `https://mainnet.infura.io/v3/${process.env.INFURA_API_KEY}`,
+      url: `https://mainnet.infura.io/v3/${INFURA_API_KEY}`,
       accounts: [PRIVATE_KEY],
       gasPrice: 120 * 1000000000,
       chainId: 1,
@@ -33,7 +33,7 @@ module.exports = {
     ftm: {
       // url: "https://rpc.ankr.com/fantom",
       url: "https://rpcapi-tracing.fantom.network",
-      accounts: process.env.PRIVATE_KEY ? [process.env.PRIVATE_KEY] : undefined,
+      accounts: [PRIVATE_KEY],
     },
     ftmTestnet: {
       networkId: 4002,
@@ -56,12 +56,6 @@ module.exports = {
         polygon: POLYGONSCAN,
         polygonMumbai: POLYGONSCAN,
     }
-  },
-  gasReporter: {
-    coinmarketcap: process.env.COINMARKETCAP_API_KEY,
-    currency: "USD",
-    enabled: process.env.REPORT_GAS === "true",
-    excludeContracts: ["contracts/mocks/", "contracts/libraries/"],
   },
   mocha: {
     timeout: 20000,
