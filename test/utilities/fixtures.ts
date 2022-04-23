@@ -1,4 +1,4 @@
-import { ethers } from "hardhat"
+const { ethers } = require("hardhat");
 import { BigNumber } from "ethers"
 import { Fixture } from "ethereum-waffle"
 

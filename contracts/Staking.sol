@@ -1,9 +1,10 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.8;
 
-import "./interfaces/IERC20.sol";
+pragma solidity 0.8.13;
 
-contract Staking is IERC20, IERC20Metadata {
+import "./interfaces/IStaking.sol";
+
+contract Staking is IStaking {
 
     /* ========== HELPER STRUCTURES ========== */
 
@@ -99,7 +100,10 @@ contract Staking is IERC20, IERC20Metadata {
         emit Approval(owner, spender, amount);
     }
 
-    function approve(address spender, uint amount) public whenNotPaused virtual override returns (bool) {
+    function approve(
+        address spender, 
+        uint amount
+    ) public whenNotPaused virtual override returns (bool) {
         _approve(msg.sender, spender, amount);
         return true;
     }
@@ -117,21 +121,21 @@ contract Staking is IERC20, IERC20Metadata {
         UserInfo storage recipient = userInfo[_recipient];
         require(amount <= sender.amount, "ERC20: transfer amount exceeds balance");
 
-        // Updating balances
         sender.accumulatedReward += calculateRewardForStake(sender.amount) - sender.rewardDebt;
-        recipient.accumulatedReward += calculateRewardForStake(recipient.amount) - recipient.rewardDebt;
-
-        // Transfering amounts
-        sender.amount -= amount;
-        recipient.amount += amount;
-
+        sender.amount -= amount; 
         sender.rewardDebt = calculateRewardForStake(sender.amount);
+
+        recipient.accumulatedReward += calculateRewardForStake(recipient.amount) - recipient.rewardDebt;
+        recipient.amount += amount; 
         recipient.rewardDebt = calculateRewardForStake(recipient.amount);
 
         emit Transfer(_sender, _recipient, amount);
     }
 
-    function transfer(address recipient, uint256 amount) public whenNotPaused virtual override returns (bool) {
+    function transfer(
+        address recipient, 
+        uint256 amount
+    ) public whenNotPaused virtual override returns (bool) {
         _transfer(msg.sender, recipient, amount);
         return true;
     } 
@@ -153,7 +157,10 @@ contract Staking is IERC20, IERC20Metadata {
         lastRewardTimestamp = block.timestamp;
     }
 
-    function stake(uint amount, address to) external whenNotPaused {
+    function stake(
+        uint amount, 
+        address to
+    ) external whenNotPaused {
         updateRewardPool();
         require(amount > 0, "Staking: Nothing to deposit");
         require(stakingToken.transferFrom(msg.sender, address(this), amount), "Staking: transfer failed");
@@ -182,7 +189,10 @@ contract Staking is IERC20, IERC20Metadata {
         require(stakingToken.transfer(msg.sender, amount), "Staking: transfer failed");
     }
 
-    function unstake(address to, uint256 amount) public whenNotPaused {
+    function unstake(
+        address to, 
+        uint256 amount
+    ) public whenNotPaused {
         updateRewardPool();
         require(amount > 0, "Staking: Nothing to unstake");
 
@@ -232,10 +242,4 @@ contract Staking is IERC20, IERC20Metadata {
         require(msg.sender == admin, "Staking: permitted to admin only.");
         _;
     }
-
-    /* ========== EVENTS ========== */
-
-    event Pause(bool flag);
-    event SetAdmin(address oldAdmin, address newAdmin);
-    event SetApr(uint oldBasisPoints, uint newBasisPoints);
 }
