@@ -1,4 +1,4 @@
-import { waffle } from "hardhat"
+const { waffle } = require("hardhat");
 import { expect } from "chai"
 import { BigNumber, BigNumberish, Wallet } from 'ethers'
 import { stakingFixture } from "./utilities/fixtures"
@@ -174,7 +174,7 @@ describe("Staking", () => {
         const amount = expandTo18Decimals(256)
 
         await expect(staking.stake(0, wallet.address)).to.be.revertedWith("Staking: Nothing to deposit")
-        await expect(staking.stake(amount, wallet.address)).to.be.revertedWith("ERC20: transfer amount exceeds allowance")
+        await expect(staking.stake(amount, wallet.address)).to.be.revertedWith("ERC20: insufficient allowance")
 
         await staking.togglePause();
         await expect(staking.stake(amount, wallet.address)).to.be.revertedWith("Staking: contract paused.")

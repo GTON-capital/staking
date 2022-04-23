@@ -6,10 +6,22 @@ async function main() {
 
     console.log("Account balance:", (await deployer.getBalance()).toString());
 
-    const Token = await ethers.getContractFactory("Token");
-    const token = await Token.deploy();
+    const stakinTokenAddress = "0xc4d0a76ba5909c8e764b67acf7360f843fbacb2d"; // Testnet GTON
+    const name = "Staking GTON";
+    const symbol = "sGTON";
+    const aprBasisPoints = 2232;
+    const harvestInterval = 86400;
 
-    console.log("Token address: ", token.address);
+    const Factory = await ethers.getContractFactory("Staking");
+    const deploy = await Factory.deploy(
+        stakinTokenAddress,
+        name,
+        symbol,
+        aprBasisPoints,
+        harvestInterval
+    );
+
+    console.log("Deploy address: ", deploy.address);
 }
 
 main()

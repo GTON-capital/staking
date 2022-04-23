@@ -1,5 +1,5 @@
 import { Contract, BigNumber, BigNumberish} from "ethers"
-import { ethers } from "hardhat"
+const { ethers } = require("hardhat");
 
 export const BASE_TEN = 10
 export const ADDRESS_ZERO = "0x0000000000000000000000000000000000000000"
