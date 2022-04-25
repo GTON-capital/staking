@@ -35,13 +35,13 @@ interface IStaking is IERC20, IERC20Metadata {
 
     function togglePause() external;
 
-    function withdrawToken(IERC20 tokenToWithdraw, address to, uint amount) external;
+    function toggleUnstake() external;
 
-    function updateAdmin(address _admin) external;
+    function withdrawToken(IERC20 tokenToWithdraw, address to, uint amount) external;
 
     /* ========== EVENTS ========== */
 
     event Pause(bool flag);
-    event SetAdmin(address oldAdmin, address newAdmin);
+    event UnstakePermit(bool flag);
     event SetApr(uint oldBasisPoints, uint newBasisPoints);
 }

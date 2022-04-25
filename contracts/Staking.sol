@@ -3,8 +3,9 @@
 pragma solidity 0.8.13;
 
 import "./interfaces/IStaking.sol";
+import "./interfaces/InitializableOwnable.sol";
 
-contract Staking is IStaking {
+contract Staking is InitializableOwnable, IStaking {
 
     /* ========== HELPER STRUCTURES ========== */
 
@@ -32,6 +33,7 @@ contract Staking is IStaking {
 
     address public admin;
     bool public paused;
+    bool public unstakePermitted;
     uint public aprBasisPoints;
 
     uint public amountStaked;
@@ -44,25 +46,25 @@ contract Staking is IStaking {
     /* ========== CONSTRUCTOR ========== */
 
     constructor(
-        IERC20 _token,
-        string memory _name,
-        string memory _symbol,
-        uint _aprBasisPoints,
-        uint _harvestInterval
+        IERC20 token_,
+        string memory name_,
+        string memory symbol_,
+        uint aprBasisPoints_,
+        uint harvestInterval_
     ) {
-        stakingToken = _token;
-        name = _name;
-        symbol = _symbol;
-        aprBasisPoints = _aprBasisPoints;
-        harvestInterval = _harvestInterval;
-        admin = msg.sender;
+        initOwner(msg.sender);
+        stakingToken = token_;
+        name = name_;
+        symbol = symbol_;
+        aprBasisPoints = aprBasisPoints_;
+        harvestInterval = harvestInterval_;
         lastRewardTimestamp = block.timestamp;
-        decimals = IERC20Metadata(address(_token)).decimals();
+        decimals = IERC20Metadata(address(token_)).decimals();
     }
 
     /* ========== VIEWS ========== */
 
-    function totalSupply() public view returns (uint256) {
+    function totalSupply() external view returns (uint256) {
         return amountStaked; 
     }
 
@@ -75,8 +77,8 @@ contract Staking is IStaking {
         return accumulatedRewardPerShare * amount / calcDecimals;
     }
 
-    function balanceOf(address _user) public view returns(uint) {
-        UserInfo storage user = userInfo[_user];
+    function balanceOf(address user_) external view returns(uint) {
+        UserInfo storage user = userInfo[user_];
         uint updAccumulatedRewardPerShare = currentRewardDelta() + accumulatedRewardPerShare;
 
         uint acc = updAccumulatedRewardPerShare * user.amount / calcDecimals - user.rewardDebt;
@@ -103,22 +105,22 @@ contract Staking is IStaking {
     function approve(
         address spender, 
         uint amount
-    ) public whenNotPaused virtual override returns (bool) {
+    ) external whenNotPaused virtual override returns (bool) {
         _approve(msg.sender, spender, amount);
         return true;
     }
 
     function _transfer(
-        address _sender,
-        address _recipient,
+        address sender_,
+        address recipient_,
         uint amount
     ) internal {
         updateRewardPool();
-        require(_sender != address(0), "ERC20: transfer from the zero address");
-        require(_recipient != address(0), "ERC20: transfer to the zero address");
+        require(sender_ != address(0), "ERC20: transfer from the zero address");
+        require(recipient_ != address(0), "ERC20: transfer to the zero address");
 
-        UserInfo storage sender = userInfo[_sender];
-        UserInfo storage recipient = userInfo[_recipient];
+        UserInfo storage sender = userInfo[sender_];
+        UserInfo storage recipient = userInfo[recipient_];
         require(amount <= sender.amount, "ERC20: transfer amount exceeds balance");
 
         sender.accumulatedReward += calculateRewardForStake(sender.amount) - sender.rewardDebt;
@@ -129,13 +131,13 @@ contract Staking is IStaking {
         recipient.amount += amount; 
         recipient.rewardDebt = calculateRewardForStake(recipient.amount);
 
-        emit Transfer(_sender, _recipient, amount);
+        emit Transfer(sender_, recipient_, amount);
     }
 
     function transfer(
         address recipient, 
         uint256 amount
-    ) public whenNotPaused virtual override returns (bool) {
+    ) external whenNotPaused virtual override returns (bool) {
         _transfer(msg.sender, recipient, amount);
         return true;
     } 
@@ -144,7 +146,7 @@ contract Staking is IStaking {
         address spender,
         address recipient,
         uint256 amount
-    ) public whenNotPaused virtual override returns (bool) {
+    ) external whenNotPaused virtual override returns (bool) {
         _transfer(spender, recipient, amount);
         uint256 currentAllowance = allowances[spender][msg.sender];
         require(currentAllowance >= amount, "ERC20: transfer amount exceeds allowance");
@@ -152,7 +154,7 @@ contract Staking is IStaking {
         return true;
     }
 
-    function updateRewardPool() public whenNotPaused {
+    function updateRewardPool() public canUnstake {
         accumulatedRewardPerShare += currentRewardDelta();
         lastRewardTimestamp = block.timestamp;
     }
@@ -163,6 +165,7 @@ contract Staking is IStaking {
     ) external whenNotPaused {
         updateRewardPool();
         require(amount > 0, "Staking: Nothing to deposit");
+        require(to != address(0));
         require(stakingToken.transferFrom(msg.sender, address(this), amount), "Staking: transfer failed");
 
         UserInfo storage user = userInfo[to];
@@ -173,7 +176,7 @@ contract Staking is IStaking {
         emit Transfer(address(0), to, amount);
     }
 
-    function harvest(uint256 amount) public whenNotPaused {
+    function harvest(uint256 amount) external whenNotPaused {
         updateRewardPool();
         UserInfo storage user = userInfo[msg.sender];
         require(user.lastHarvestTimestamp + harvestInterval <= block.timestamp || 
@@ -192,9 +195,10 @@ contract Staking is IStaking {
     function unstake(
         address to, 
         uint256 amount
-    ) public whenNotPaused {
+    ) external canUnstake {
         updateRewardPool();
         require(amount > 0, "Staking: Nothing to unstake");
+        require(to != address(0));
 
         UserInfo storage user = userInfo[msg.sender];
         require(amount <= user.amount, "Staking: Insufficient share");
@@ -209,26 +213,29 @@ contract Staking is IStaking {
 
     /* ========== RESTRICTED FUNCTIONS ========== */
 
-    function setApr(uint _aprBasisPoints) public onlyAdmin {
+    function setApr(uint aprBasisPoints_) external onlyOwner {
         updateRewardPool();
         uint oldAprBasisPoints = aprBasisPoints;
-        aprBasisPoints = _aprBasisPoints;
+        aprBasisPoints = aprBasisPoints_;
         emit SetApr(oldAprBasisPoints, aprBasisPoints);
     }
 
-    function togglePause() public onlyAdmin {
+    function togglePause() external onlyOwner {
         paused = !paused;
         emit Pause(paused);
     }
 
-    function withdrawToken(IERC20 tokenToWithdraw, address to, uint amount) public onlyAdmin {
-        require(tokenToWithdraw.transfer(to,amount));
+    function toggleUnstake() external onlyOwner {
+        unstakePermitted = !unstakePermitted;
+        emit UnstakePermit(unstakePermitted);
     }
 
-    function updateAdmin(address _admin) public onlyAdmin {
-        address oldAdmin = admin;
-        admin = _admin;
-        emit SetAdmin(oldAdmin, _admin);
+    function withdrawToken(
+        IERC20 tokenToWithdraw, 
+        address to, 
+        uint amount
+    ) external onlyOwner {
+        require(tokenToWithdraw.transfer(to, amount));
     }
 
     /* ========== MODIFIERS ========== */
@@ -238,8 +245,8 @@ contract Staking is IStaking {
         _;
     }
 
-    modifier onlyAdmin() {
-        require(msg.sender == admin, "Staking: permitted to admin only.");
+    modifier canUnstake() {
+        require(unstakePermitted || (!paused), "Staking: contract paused or unstake denied.");
         _;
     }
 }

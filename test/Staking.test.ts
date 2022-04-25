@@ -49,7 +49,7 @@ describe("Staking", () => {
 
     it("constructor initializes variables", async () => {
         const lastBlock = await getLastTS()
-        expect(await staking.admin()).to.eq(wallet.address)
+        expect(await staking.owner()).to.eq(wallet.address)
         expect(await staking.amountStaked()).to.eq(0)
         expect(await staking.harvestInterval()).to.eq(86400)
         expect(await staking.accumulatedRewardPerShare()).to.eq(0)
@@ -58,16 +58,17 @@ describe("Staking", () => {
         expect(await staking.aprBasisPoints()).to.eq(2500)
     })
 
-    it("update admin", async () => {
-        await expect(staking.connect(other).updateAdmin(wallet.address)).to.be.revertedWith('Staking: permitted to admin only.')
-        await staking.updateAdmin(other.address)
-        expect(await staking.admin()).to.eq(other.address)
+    it("update owner", async () => {
+        await expect(staking.connect(other).transferOwnership(wallet.address)).to.be.revertedWith('Not owner')
+        await staking.transferOwnership(other.address)
+        await staking.connect(other).claimOwnership()
+        expect(await staking.owner()).to.eq(other.address)
     })
 
     it("set APR", async () => {
         // random numbers
         const apr = BigNumber.from("140")
-        await expect(staking.connect(other).setApr(apr)).to.be.revertedWith('Staking: permitted to admin only.')
+        await expect(staking.connect(other).setApr(apr)).to.be.revertedWith('Not owner')
         await staking.setApr(apr)
         expect(await staking.aprBasisPoints()).to.eq(apr)
     })
@@ -75,9 +76,9 @@ describe("Staking", () => {
     it("withdraw token", async () => {
         const amount = BigNumber.from(15000000000000)
         gton.transfer(staking.address, amount)
-        await expect(staking.connect(other).withdrawToken(gton.address, wallet.address, amount)).to.be.revertedWith('Staking: permitted to admin only')
+        await expect(staking.connect(other).withdrawToken(gton.address, wallet.address, amount)).to.be.revertedWith('Not owner')
         // expect admin to fail to withdraw
-        await expect(staking.connect(katy).withdrawToken(gton.address, wallet.address, amount)).to.be.revertedWith('Staking: permitted to admin only')
+        await expect(staking.connect(katy).withdrawToken(gton.address, wallet.address, amount)).to.be.revertedWith('Not owner')
         await staking.withdrawToken(gton.address, other.address, amount)
         expect(await gton.balanceOf(other.address)).to.eq(amount)
         expect(await gton.balanceOf(staking.address)).to.eq(0)
@@ -122,7 +123,7 @@ describe("Staking", () => {
         }
 
         await staking.togglePause();
-        await expect(staking.updateRewardPool()).to.be.revertedWith("Staking: contract paused.")
+        await expect(staking.updateRewardPool()).to.be.revertedWith("Staking: contract paused or unstake denied.")
         await staking.togglePause();
     })
 
@@ -205,6 +206,7 @@ describe("Staking", () => {
         expect(await staking.amountStaked()).to.eq(amountStakedBefore.sub(amount))
         expect(await staking.accumulatedRewardPerShare()).to.eq(currentAccRewPerShare.add(updateARPS))
     }
+
     it("unstake", async () => {
         await fillUpStaking();
 
@@ -213,17 +215,25 @@ describe("Staking", () => {
 
         await staking.stake(amount, wallet.address)
 
+        const unstakeError = "Staking: contract paused or unstake denied.";
+
         await expect(staking.unstake(wallet.address, 0)).to.be.revertedWith("Staking: Nothing to unstake")
         await expect(staking.unstake(wallet.address, amount.add(1))).to.be.revertedWith("Staking: Insufficient share")
 
         await staking.togglePause();
-        await expect(staking.unstake(wallet.address, amount)).to.be.revertedWith("Staking: contract paused.")
+        await expect(staking.unstake(wallet.address, amount)).to.be.revertedWith(unstakeError)
+
+        await staking.toggleUnstake();
+        // Should start working
+        await staking.unstake(wallet.address, 1)
+        await staking.toggleUnstake();
+        await expect(staking.unstake(wallet.address, amount)).to.be.revertedWith(unstakeError)
+
         await staking.togglePause();
 
         await gton.transfer(staking.address, await gton.balanceOf(wallet.address));
 
         await unstake(wallet, amount.sub(15))
-
     })
 
     async function harvest(user: Wallet, amount: BigNumberish) {
@@ -551,5 +561,4 @@ describe("Staking", () => {
             expect(await staking.balanceOf(wallet.address)).to.eq(amount)
         })
     })
-
 })
