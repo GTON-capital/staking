@@ -123,7 +123,7 @@ describe("Staking", () => {
         }
 
         await staking.togglePause();
-        await expect(staking.updateRewardPool()).to.be.revertedWith("Staking: contract paused.")
+        await expect(staking.updateRewardPool()).to.be.revertedWith("Staking: contract paused or unstake denied.")
         await staking.togglePause();
     })
 
@@ -206,6 +206,7 @@ describe("Staking", () => {
         expect(await staking.amountStaked()).to.eq(amountStakedBefore.sub(amount))
         expect(await staking.accumulatedRewardPerShare()).to.eq(currentAccRewPerShare.add(updateARPS))
     }
+
     it("unstake", async () => {
         await fillUpStaking();
 
@@ -214,17 +215,25 @@ describe("Staking", () => {
 
         await staking.stake(amount, wallet.address)
 
+        const unstakeError = "Staking: contract paused or unstake denied.";
+
         await expect(staking.unstake(wallet.address, 0)).to.be.revertedWith("Staking: Nothing to unstake")
         await expect(staking.unstake(wallet.address, amount.add(1))).to.be.revertedWith("Staking: Insufficient share")
 
         await staking.togglePause();
-        await expect(staking.unstake(wallet.address, amount)).to.be.revertedWith("Staking: contract paused.")
+        await expect(staking.unstake(wallet.address, amount)).to.be.revertedWith(unstakeError)
+
+        await staking.toggleUnstake();
+        // Should start working
+        await staking.unstake(wallet.address, 1)
+        await staking.toggleUnstake();
+        await expect(staking.unstake(wallet.address, amount)).to.be.revertedWith(unstakeError)
+
         await staking.togglePause();
 
         await gton.transfer(staking.address, await gton.balanceOf(wallet.address));
 
         await unstake(wallet, amount.sub(15))
-
     })
 
     async function harvest(user: Wallet, amount: BigNumberish) {
@@ -552,5 +561,4 @@ describe("Staking", () => {
             expect(await staking.balanceOf(wallet.address)).to.eq(amount)
         })
     })
-
 })
