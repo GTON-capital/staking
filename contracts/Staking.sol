@@ -3,8 +3,9 @@
 pragma solidity 0.8.13;
 
 import "./interfaces/IStaking.sol";
+import "./interfaces/InitializableOwnable.sol";
 
-contract Staking is IStaking {
+contract Staking is InitializableOwnable, IStaking {
 
     /* ========== HELPER STRUCTURES ========== */
 
@@ -50,12 +51,12 @@ contract Staking is IStaking {
         uint _aprBasisPoints,
         uint _harvestInterval
     ) {
+        initOwner(msg.sender);
         stakingToken = _token;
         name = _name;
         symbol = _symbol;
         aprBasisPoints = _aprBasisPoints;
         harvestInterval = _harvestInterval;
-        admin = msg.sender;
         lastRewardTimestamp = block.timestamp;
         decimals = IERC20Metadata(address(_token)).decimals();
     }
@@ -209,37 +210,26 @@ contract Staking is IStaking {
 
     /* ========== RESTRICTED FUNCTIONS ========== */
 
-    function setApr(uint _aprBasisPoints) public onlyAdmin {
+    function setApr(uint _aprBasisPoints) public onlyOwner {
         updateRewardPool();
         uint oldAprBasisPoints = aprBasisPoints;
         aprBasisPoints = _aprBasisPoints;
         emit SetApr(oldAprBasisPoints, aprBasisPoints);
     }
 
-    function togglePause() public onlyAdmin {
+    function togglePause() public onlyOwner {
         paused = !paused;
         emit Pause(paused);
     }
 
-    function withdrawToken(IERC20 tokenToWithdraw, address to, uint amount) public onlyAdmin {
+    function withdrawToken(IERC20 tokenToWithdraw, address to, uint amount) public onlyOwner {
         require(tokenToWithdraw.transfer(to,amount));
-    }
-
-    function updateAdmin(address _admin) public onlyAdmin {
-        address oldAdmin = admin;
-        admin = _admin;
-        emit SetAdmin(oldAdmin, _admin);
     }
 
     /* ========== MODIFIERS ========== */
 
     modifier whenNotPaused() {
         require(!paused, "Staking: contract paused.");
-        _;
-    }
-
-    modifier onlyAdmin() {
-        require(msg.sender == admin, "Staking: permitted to admin only.");
         _;
     }
 }

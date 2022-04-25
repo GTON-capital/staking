@@ -49,7 +49,7 @@ describe("Staking", () => {
 
     it("constructor initializes variables", async () => {
         const lastBlock = await getLastTS()
-        expect(await staking.admin()).to.eq(wallet.address)
+        expect(await staking.owner()).to.eq(wallet.address)
         expect(await staking.amountStaked()).to.eq(0)
         expect(await staking.harvestInterval()).to.eq(86400)
         expect(await staking.accumulatedRewardPerShare()).to.eq(0)
@@ -58,16 +58,17 @@ describe("Staking", () => {
         expect(await staking.aprBasisPoints()).to.eq(2500)
     })
 
-    it("update admin", async () => {
-        await expect(staking.connect(other).updateAdmin(wallet.address)).to.be.revertedWith('Staking: permitted to admin only.')
-        await staking.updateAdmin(other.address)
-        expect(await staking.admin()).to.eq(other.address)
+    it("update owner", async () => {
+        await expect(staking.connect(other).transferOwnership(wallet.address)).to.be.revertedWith('Not owner')
+        await staking.transferOwnership(other.address)
+        await staking.connect(other).claimOwnership()
+        expect(await staking.owner()).to.eq(other.address)
     })
 
     it("set APR", async () => {
         // random numbers
         const apr = BigNumber.from("140")
-        await expect(staking.connect(other).setApr(apr)).to.be.revertedWith('Staking: permitted to admin only.')
+        await expect(staking.connect(other).setApr(apr)).to.be.revertedWith('Not owner')
         await staking.setApr(apr)
         expect(await staking.aprBasisPoints()).to.eq(apr)
     })
@@ -75,9 +76,9 @@ describe("Staking", () => {
     it("withdraw token", async () => {
         const amount = BigNumber.from(15000000000000)
         gton.transfer(staking.address, amount)
-        await expect(staking.connect(other).withdrawToken(gton.address, wallet.address, amount)).to.be.revertedWith('Staking: permitted to admin only')
+        await expect(staking.connect(other).withdrawToken(gton.address, wallet.address, amount)).to.be.revertedWith('Not owner')
         // expect admin to fail to withdraw
-        await expect(staking.connect(katy).withdrawToken(gton.address, wallet.address, amount)).to.be.revertedWith('Staking: permitted to admin only')
+        await expect(staking.connect(katy).withdrawToken(gton.address, wallet.address, amount)).to.be.revertedWith('Not owner')
         await staking.withdrawToken(gton.address, other.address, amount)
         expect(await gton.balanceOf(other.address)).to.eq(amount)
         expect(await gton.balanceOf(staking.address)).to.eq(0)
