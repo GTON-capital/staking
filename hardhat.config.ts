@@ -37,7 +37,7 @@ module.exports = {
     },
     ftmTestnet: {
       networkId: 4002,
-      url: "https://rpc.testnet.fantom.network",
+      url: "https://xapi.testnet.fantom.network/lachesis",
       accounts: [PRIVATE_KEY],
       // gasPrice: 35000000000,
     }

@@ -31,6 +31,7 @@ contract ClaimGTONPostAudit is InitializableOwnable, ReentrancyGuard {
         PreAuditStaking stakingContract_,
         IERC20 gton_
     ) {
+        initOwner(msg.sender);
         stakingContract = stakingContract_;
         gton = gton_;
         require(lastRewardTimestamp > stakingContract_.lastRewardTimestamp(), "Wrong update timestamp");
@@ -52,6 +53,14 @@ contract ClaimGTONPostAudit is InitializableOwnable, ReentrancyGuard {
         withdrawals[msg.sender] = true;
         require(gton.transfer(msg.sender, amount), "Staking: transfer failed");
         emit Withdraw(msg.sender, amount);
+    }
+
+    function withdrawToken(
+        IERC20 tokenToWithdraw, 
+        address to, 
+        uint amount
+    ) external onlyOwner {
+        require(tokenToWithdraw.transfer(to, amount));
     }
 
     event Withdraw(address indexed user, uint indexed amount);
