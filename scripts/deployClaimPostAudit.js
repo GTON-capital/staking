@@ -9,7 +9,7 @@ const gtonMainnet = "0xc1be9a4d5d45beeacae296a7bd5fadbfc14602c4"
 const stakingTestnet = "0x314650ac2876c6B6f354499362Df8B4DC95E4750"
 const gtonTestnet = "0xc4d0a76ba5909c8e764b67acf7360f843fbacb2d"
 
-const testnetDeploy = "0xb74cA2Ae0348fcFf27CeC498e3dD2f2346937C15"
+const testnetDeploy = "0xB48327cC1804A0DCf2F85A09e0fBBB5e4d8f4830"
 const mainnetDeploy = ""
 
 async function main() {

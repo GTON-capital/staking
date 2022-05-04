@@ -15,14 +15,12 @@ contract ClaimGTONPostAudit is InitializableOwnable, ReentrancyGuard {
     PreAuditStaking public immutable stakingContract;
     IERC20 public immutable gton;
 
-    uint public constant pauseTimestamp = 1651595669;
-
     uint public constant calcDecimals = 1e14;
-    uint public constant secondsInYear = 31557600;
-    uint public constant aprDenominator = 10000;
-    uint public constant aprBasisPoints = 2232;
-    uint public lastRewardTimestamp = 1651590675;
-    uint public accumulatedRewardPerShare;
+
+    // These values are all hardcoded to related numbers for payouts to avoid
+    // possibility of calculation issues on this simple contract
+    uint public constant pauseTimestamp = 1651595669;
+    uint public constant accumulatedRewardPerShare = 5474781204318;
     
     /* ========== STATE VARIABLES ========== */
     mapping(address => bool) public withdrawals;
@@ -34,14 +32,9 @@ contract ClaimGTONPostAudit is InitializableOwnable, ReentrancyGuard {
         initOwner(msg.sender);
         stakingContract = stakingContract_;
         gton = gton_;
-        require(lastRewardTimestamp > stakingContract_.lastRewardTimestamp(), "Wrong update timestamp");
-        uint timeDelta = lastRewardTimestamp - stakingContract_.lastRewardTimestamp();
-        uint rewardDelta = (timeDelta * aprBasisPoints * calcDecimals) / (aprDenominator * secondsInYear);
-        accumulatedRewardPerShare = 
-            stakingContract_.accumulatedRewardPerShare() + rewardDelta;
     }
 
-    function withdrawGton() public nonReentrant {
+    function withdrawGton() external nonReentrant {
         require(withdrawals[msg.sender] == false, "User already withdrawn");
         require(stakingContract.balanceOf(msg.sender) != 0, "Zero balance");
         PreAuditStaking.UserInfo memory user = stakingContract.userInfo(msg.sender);
