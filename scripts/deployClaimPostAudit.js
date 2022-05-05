@@ -10,10 +10,10 @@ const stakingTestnet = "0x314650ac2876c6B6f354499362Df8B4DC95E4750"
 const gtonTestnet = "0xc4d0a76ba5909c8e764b67acf7360f843fbacb2d"
 
 const testnetDeploy = "0xB48327cC1804A0DCf2F85A09e0fBBB5e4d8f4830"
-const mainnetDeploy = ""
+const mainnetDeploy = "0xbceb65916a02804acfc32983a52b07f07e1c5477"
 
 async function main() {
-    await deployTestnet()
+    await deployMainnet()
 }
 
 async function deployMainnet() {
