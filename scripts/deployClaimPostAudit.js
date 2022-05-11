@@ -1,5 +1,5 @@
-const hre = require("hardhat");
-const Big = require('big.js');
+const hre = require("hardhat")
+const Big = require('big.js')
 
 const contractName = "ClaimGTONPostAudit"
 
@@ -25,61 +25,61 @@ async function deployTestnet() {
 }
 
 async function deploy(stakingAddress, gtonAddress) {
-    console.log(process.argv);
-    const [deployer] = await ethers.getSigners();
+    console.log(process.argv)
+    const [deployer] = await ethers.getSigners()
 
-    console.log("Deploying contracts with the account:", deployer.address);
+    console.log("Deploying contracts with the account:", deployer.address)
 
-    console.log("Account balance:", (await deployer.getBalance()).toString());
+    console.log("Account balance:", (await deployer.getBalance()).toString())
 
-    const Factory = await ethers.getContractFactory(contractName);
+    const Factory = await ethers.getContractFactory(contractName)
     const deploy = await Factory.deploy(
         stakingAddress,
         gtonAddress
-    );
+    )
     await deploy.deployed()
-    console.log("Deploy address: ", deploy.address);
+    console.log("Deploy address: ", deploy.address)
 }
 
 async function userWithdrawal() {
-    const [deployer] = await ethers.getSigners();
+    const [deployer] = await ethers.getSigners()
 
-  console.log("Working with the account:", deployer.address);
-  console.log("Account balance:", (await deployer.getBalance()).toString());
+  console.log("Working with the account:", deployer.address)
+  console.log("Account balance:", (await deployer.getBalance()).toString())
 
-  const Factory = await ethers.getContractFactory(contractName);
+  const Factory = await ethers.getContractFactory(contractName)
   const contract = await Factory.attach(
     testnetDeploy // The deployed contract address
-  );
+  )
 
   // Now you can call functions of the contract
-  const result = await contract.withdrawGton();
-  console.log(result.hash);
+  const result = await contract.withdrawGton()
+  console.log(result.hash)
 }
 
 async function adminWithdrawal() {
-    const [deployer] = await ethers.getSigners();
+    const [deployer] = await ethers.getSigners()
 
-  console.log("Working with the account:", deployer.address);
-  console.log("Account balance:", (await deployer.getBalance()).toString());
+  console.log("Working with the account:", deployer.address)
+  console.log("Account balance:", (await deployer.getBalance()).toString())
 
-  const Factory = await ethers.getContractFactory(contractName);
+  const Factory = await ethers.getContractFactory(contractName)
   const contract = await Factory.attach(
     testnetDeploy // The deployed contract address
-  );
+  )
 
   // Now you can call functions of the contract
   const result = await contract.withdrawToken(
     gtonTestnet,
     deployer.address,
     Big(3).mul(1e18)
-  );
-  console.log(result.hash);
+  )
+  console.log(result.hash)
 }
 
 main()
     .then(() => process.exit(0))
     .catch((error) => {
-        console.error(error);
-        process.exit(1);
-    });
+        console.error(error)
+        process.exit(1)
+    })

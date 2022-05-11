@@ -1,4 +1,6 @@
-require("@nomiclabs/hardhat-waffle");
+import '@nomiclabs/hardhat-ethers'
+import '@nomiclabs/hardhat-waffle'
+import "@nomiclabs/hardhat-etherscan"
 
 require('dotenv').config();
 import { resolve } from "path";
@@ -25,10 +27,20 @@ module.exports = {
       url: "http://127.0.0.1:8545",
     },
     mainnet: {
-      url: `https://mainnet.infura.io/v3/${INFURA_API_KEY}`,
+      url: "https://rinkeby.infura.io/v3/9aa3d95b3bc440fa88ea12eaa4456161",
       accounts: [PRIVATE_KEY],
       gasPrice: 120 * 1000000000,
       chainId: 1,
+    },
+    rinkeby: {
+      url: "https://rinkeby.infura.io/v3/9aa3d95b3bc440fa88ea12eaa4456161",
+      accounts: [PRIVATE_KEY],
+    },
+    ropsten: {
+      url: "https://ropsten.infura.io/v3/9aa3d95b3bc440fa88ea12eaa4456161",
+      accounts: [PRIVATE_KEY],
+      gasPrice: 14 * 1e9,
+      gasMultiplier: 1,
     },
     ftm: {
       // url: "https://rpc.ankr.com/fantom",
@@ -80,7 +92,13 @@ module.exports = {
   solidity: {
     compilers: [
       {
-        version: "0.8.13"
+        version: "0.8.13",
+        settings: {
+          optimizer: {
+            enabled: true,
+            runs: 200
+          }
+        }
       }
     ],
   },
