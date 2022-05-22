@@ -378,6 +378,13 @@ describe("Staking", () => {
             }
         }
 
+        async function calculateApy(amount: BigNumber, period: number, rounding: boolean = false) {
+            const apr = await staking.aprBasisPoints()
+            const aprDenominator = await staking.aprDenominator();
+            const yearEarn = amount.mul(apr).div(aprDenominator);
+            return yearEarn.mul(period).div(time.year)
+        }
+
         it("After year APY of each user should be correct and APY of all sc the same", async () => {
             await fillUpStaking()
             for (const i of updRewardData) {
@@ -419,7 +426,26 @@ describe("Staking", () => {
             await staking.connect(fedor).transfer(alice.address, fedorAmount.div(2))
             await checkUserApy(alice, time.year, true)
             await checkUserApy(fedor, time.halfYear, true)
+        })
 
+        it("several stakes yields reward that can be harvested", async () => {
+            await dropALot(fedor)
+            const amount = expandTo18Decimals(1000)
+            let period = time.year
+            await gton.approve(staking.address, amount)
+            await stakeAndWait(fedor, amount, period)
+
+            await gton.approve(staking.address, amount)
+            await stakeAndWait(fedor, amount, period)
+
+            let firstEarn = await calculateApy(amount, period, true)
+            console.log("First reward: " + firstEarn)
+            // amount doubles on second year
+            let secondEarn = await calculateApy(amount.mul(2), period, true)
+            console.log("Second year reward: " + secondEarn)
+
+            let finalEarn = firstEarn.add(secondEarn)
+            let harvestAllExpectedReward = await staking.harvest(finalEarn)
         })
 
         // +2 blocks
