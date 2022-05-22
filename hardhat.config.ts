@@ -1,3 +1,4 @@
+import '@typechain/hardhat'
 import '@nomiclabs/hardhat-ethers'
 import '@nomiclabs/hardhat-waffle'
 import "@nomiclabs/hardhat-etherscan"
@@ -92,11 +93,11 @@ module.exports = {
   solidity: {
     compilers: [
       {
-        version: "0.8.13",
+        version: "0.8.14",
         settings: {
           optimizer: {
             enabled: true,
-            runs: 200
+            runs: 800
           }
         }
       }

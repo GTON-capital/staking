@@ -2,9 +2,10 @@ const { ethers } = require("hardhat");
 import { BigNumber } from "ethers"
 import { Fixture } from "ethereum-waffle"
 
-import { Staking } from "../../types/Staking"
-import { ERC20 } from "../../types/ERC20"
-
+import { 
+    ERC20,
+    Staking,
+} from "../../types"
 
 interface CompoundFixture {
     gton: ERC20
