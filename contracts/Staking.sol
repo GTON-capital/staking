@@ -176,6 +176,7 @@ contract Staking is InitializableOwnable, IStaking {
         user.amount += amount;
         user.rewardAccountedForHarevest = calculateRewardForStake(user.amount);
         emit Transfer(address(0), to, amount);
+        emit Stake(to, amount);
     }
 
     function harvest(uint256 amount) external whenNotPaused {
@@ -192,6 +193,7 @@ contract Staking is InitializableOwnable, IStaking {
         require(amount <= user.availableHarvest, "Staking: Insufficient to harvest");
         user.availableHarvest -= amount;
         require(stakingToken.transfer(msg.sender, amount), "Staking: transfer failed");
+        emit Harvest(msg.sender, amount);
     }
 
     function unstake(
@@ -211,6 +213,7 @@ contract Staking is InitializableOwnable, IStaking {
 
         require(stakingToken.transfer(to, amount), "Staking: Not enough token to transfer");
         emit Transfer(to, address(0), amount);
+        emit Unstake(to, amount);
     }
 
     /* ========== RESTRICTED FUNCTIONS ========== */

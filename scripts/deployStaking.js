@@ -6,7 +6,7 @@ const gtonFantomTestnet = "0xc4d0a76ba5909c8e764b67acf7360f843fbacb2d"
 
 const gton = gtonRopsten
 
-const stakingRopsten = "0x96af3D79BAe5Cb8CD34A6F643D07186F58c0e854"
+const stakingRopsten = "0x2061489A2AE30D0ced15F4721c0bb53f30DE175c"
 
 async function main() {
     await deployStaking()

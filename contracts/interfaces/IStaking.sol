@@ -41,7 +41,10 @@ interface IStaking is IERC20, IERC20Metadata {
 
     /* ========== EVENTS ========== */
 
-    event Pause(bool flag);
-    event UnstakePermit(bool flag);
-    event SetApr(uint oldBasisPoints, uint newBasisPoints);
+    event Pause(bool indexed flag);
+    event UnstakePermit(bool indexed flag);
+    event SetApr(uint indexed oldBasisPoints, uint indexed newBasisPoints);
+    event Stake(address indexed user, uint indexed amount);
+    event Unstake(address indexed user, uint indexed amount);
+    event Harvest(address indexed user, uint indexed amount);
 }
