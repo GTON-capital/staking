@@ -146,7 +146,7 @@ describe("Staking", () => {
         const lastARPS = await staking.accumulatedRewardPerShare()
         const updateARPS = await periodARPS(period);
         const futureARPS = lastARPS.add(updateARPS);
-        return futureARPS.mul(userInfo.amount).div(calcDecimals).sub(userInfo.rewardAccountedForHarevest)
+        return futureARPS.mul(userInfo.amount).div(calcDecimals).sub(userInfo.rewardAccountedForHarvest)
     }
 
     // should use stake with wei

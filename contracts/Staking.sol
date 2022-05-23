@@ -11,7 +11,7 @@ contract Staking is InitializableOwnable, IStaking {
 
     struct UserInfo {
         uint amount;
-        uint rewardAccountedForHarevest;
+        uint rewardAccountedForHarvest;
         uint availableHarvest;
         uint lastHarvestTimestamp;
     }
@@ -83,7 +83,7 @@ contract Staking is InitializableOwnable, IStaking {
 
         uint virtualReward = 
             updAccumulatedRewardPerShare * user.amount / calcDecimals 
-            - user.rewardAccountedForHarevest;
+            - user.rewardAccountedForHarvest;
         return user.amount + user.availableHarvest + virtualReward;
     }
 
@@ -125,13 +125,13 @@ contract Staking is InitializableOwnable, IStaking {
         UserInfo storage recipient = userInfo[recipient_];
         require(amount <= sender.amount, "ERC20: transfer amount exceeds balance");
 
-        sender.availableHarvest += calculateRewardForStake(sender.amount) - sender.rewardAccountedForHarevest;
+        sender.availableHarvest += calculateRewardForStake(sender.amount) - sender.rewardAccountedForHarvest;
         sender.amount -= amount; 
-        sender.rewardAccountedForHarevest = calculateRewardForStake(sender.amount);
+        sender.rewardAccountedForHarvest = calculateRewardForStake(sender.amount);
 
-        recipient.availableHarvest += calculateRewardForStake(recipient.amount) - recipient.rewardAccountedForHarevest;
+        recipient.availableHarvest += calculateRewardForStake(recipient.amount) - recipient.rewardAccountedForHarvest;
         recipient.amount += amount; 
-        recipient.rewardAccountedForHarevest = calculateRewardForStake(recipient.amount);
+        recipient.rewardAccountedForHarvest = calculateRewardForStake(recipient.amount);
 
         emit Transfer(sender_, recipient_, amount);
     }
@@ -171,10 +171,10 @@ contract Staking is InitializableOwnable, IStaking {
         require(stakingToken.transferFrom(msg.sender, address(this), amount), "Staking: transfer failed");
 
         UserInfo storage user = userInfo[to];
-        user.availableHarvest += calculateRewardForStake(user.amount) - user.rewardAccountedForHarevest;
+        user.availableHarvest += calculateRewardForStake(user.amount) - user.rewardAccountedForHarvest;
         amountStaked += amount;
         user.amount += amount;
-        user.rewardAccountedForHarevest = calculateRewardForStake(user.amount);
+        user.rewardAccountedForHarvest = calculateRewardForStake(user.amount);
         emit Transfer(address(0), to, amount);
         emit Stake(to, amount);
     }
@@ -186,8 +186,8 @@ contract Staking is InitializableOwnable, IStaking {
             user.lastHarvestTimestamp == 0, "Staking: less than 24 hours since last harvest");
         user.lastHarvestTimestamp = block.timestamp;
         uint reward = calculateRewardForStake(user.amount);
-        user.availableHarvest += reward - user.rewardAccountedForHarevest;
-        user.rewardAccountedForHarevest = reward;
+        user.availableHarvest += reward - user.rewardAccountedForHarvest;
+        user.rewardAccountedForHarvest = reward;
 
         require(amount > 0, "Staking: Nothing to harvest");
         require(amount <= user.availableHarvest, "Staking: Insufficient to harvest");
@@ -206,10 +206,10 @@ contract Staking is InitializableOwnable, IStaking {
 
         UserInfo storage user = userInfo[msg.sender];
         require(amount <= user.amount, "Staking: Insufficient share");
-        user.availableHarvest += calculateRewardForStake(user.amount) - user.rewardAccountedForHarevest;
+        user.availableHarvest += calculateRewardForStake(user.amount) - user.rewardAccountedForHarvest;
         amountStaked -= amount;
         user.amount -= amount;
-        user.rewardAccountedForHarevest = calculateRewardForStake(user.amount);
+        user.rewardAccountedForHarvest = calculateRewardForStake(user.amount);
 
         require(stakingToken.transfer(to, amount), "Staking: Not enough token to transfer");
         emit Transfer(to, address(0), amount);
