@@ -2,7 +2,12 @@
   "name": "hardhat-project",
   "devDependencies": {
     "@nomiclabs/hardhat-ethers": "^2.0.5",
+    "@nomiclabs/hardhat-etherscan": "^3.0.3",
     "@nomiclabs/hardhat-waffle": "^2.0.3",
+    "@typechain/ethers-v5": "^10.0.0",
+    "@typechain/hardhat": "^6.0.0",
+    "@types/mocha": "^9.1.1",
+    "big.js": "^6.1.1",
     "chai": "^4.3.6",
     "ethereum-waffle": "^3.4.4",
     "ethers": "^5.6.4",
@@ -10,9 +15,14 @@
     "hardhat-deploy": "^0.7.0-beta.44",
     "hardhat-deploy-ethers": "^0.3.0-beta.7",
     "ts-node": "^10.7.0",
-    "@types/mocha": "^9.1.1"
+    "typechain": "^8.0.0"
   },
   "scripts": {
+    "staking:deploy:ethereum": "hardhat run --network mainnet ./scripts/deployStaking.js",
+    "staking:deploy:ropsten": "hardhat run --network ropsten ./scripts/deployStaking.js",
+    "staking:deploy:ftmtest": "hardhat run --network ftmTestnet ./scripts/deployStaking.js",
+    "claim:deploy:ftm": "hardhat run --network ftm ./scripts/deployClaimPostAudit.js",
+    "claim:deploy:ftmtest": "hardhat run --network ftmTestnet ./scripts/deployClaimPostAudit.js"
   },
   "dependencies": {
     "@openzeppelin/contracts": "^4.5.0",

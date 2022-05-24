@@ -4,9 +4,10 @@ import { BigNumber, BigNumberish, Wallet } from 'ethers'
 import { stakingFixture } from "./utilities/fixtures"
 import { mineBlocks, timestampSetter, blockGetter, expandTo18Decimals, time } from "./utilities/index"
 
-import { ERC20 } from "../types/ERC20"
-import { Staking } from "../types/Staking"
-
+import { 
+    ERC20,
+    Staking,
+} from "../types"
 
 describe("Staking", () => {
     const [wallet, katy, alex, alice, bob, denice, fedor, other] = waffle.provider.getWallets()
@@ -145,7 +146,7 @@ describe("Staking", () => {
         const lastARPS = await staking.accumulatedRewardPerShare()
         const updateARPS = await periodARPS(period);
         const futureARPS = lastARPS.add(updateARPS);
-        return futureARPS.mul(userInfo.amount).div(calcDecimals).sub(userInfo.rewardDebt)
+        return futureARPS.mul(userInfo.amount).div(calcDecimals).sub(userInfo.rewardAccountedForHarvest)
     }
 
     // should use stake with wei
@@ -202,7 +203,7 @@ describe("Staking", () => {
         const state = await staking.userInfo(user.address)
         expect(state.amount).to.eq(stateBefore.amount.sub(amount))
         // because of earn difference between actual expectation with usual dividing and contracts math
-        expect(state.accumulatedReward).to.be.closeTo(rewards, approximate)
+        expect(state.availableHarvest).to.be.closeTo(rewards, approximate)
         expect(await staking.amountStaked()).to.eq(amountStakedBefore.sub(amount))
         expect(await staking.accumulatedRewardPerShare()).to.eq(currentAccRewPerShare.add(updateARPS))
     }
@@ -247,7 +248,7 @@ describe("Staking", () => {
         await staking.connect(user).harvest(rewardsAmount)
         const stateAfter = await staking.userInfo(user.address)
         expect(stateAfter.lastHarvestTimestamp).to.eq(await getLastTS())
-        expect(stateAfter.accumulatedReward).to.eq(0)
+        expect(stateAfter.availableHarvest).to.eq(0)
     }
 
     it("harvest", async () => {
@@ -378,6 +379,13 @@ describe("Staking", () => {
             }
         }
 
+        async function calculateApy(amount: BigNumber, period: number, rounding: boolean = false) {
+            const apr = await staking.aprBasisPoints()
+            const aprDenominator = await staking.aprDenominator();
+            const yearEarn = amount.mul(apr).div(aprDenominator);
+            return yearEarn.mul(period).div(time.year)
+        }
+
         it("After year APY of each user should be correct and APY of all sc the same", async () => {
             await fillUpStaking()
             for (const i of updRewardData) {
@@ -419,7 +427,26 @@ describe("Staking", () => {
             await staking.connect(fedor).transfer(alice.address, fedorAmount.div(2))
             await checkUserApy(alice, time.year, true)
             await checkUserApy(fedor, time.halfYear, true)
+        })
 
+        it("several stakes yields reward that can be harvested", async () => {
+            await dropALot(fedor)
+            const amount = expandTo18Decimals(1000)
+            let period = time.year
+            await gton.approve(staking.address, amount)
+            await stakeAndWait(fedor, amount, period)
+
+            await gton.approve(staking.address, amount)
+            await stakeAndWait(fedor, amount, period)
+
+            let firstEarn = await calculateApy(amount, period, true)
+            console.log("First reward: " + firstEarn)
+            // amount doubles on second year
+            let secondEarn = await calculateApy(amount.mul(2), period, true)
+            console.log("Second year reward: " + secondEarn)
+
+            let finalEarn = firstEarn.add(secondEarn)
+            let harvestAllExpectedReward = await staking.connect(fedor).harvest(finalEarn)
         })
 
         // +2 blocks
@@ -459,7 +486,7 @@ describe("Staking", () => {
 
             await staking.connect(user).harvest(1)
             const finalInfo = await staking.userInfo(user.address)
-            expect(finalInfo.accumulatedReward).to.be.closeTo(expectedReward, approximate)
+            expect(finalInfo.availableHarvest).to.be.closeTo(expectedReward, approximate)
         })
 
         it("after second user stakes a lot - first one gets correct payout", async () => {
@@ -487,7 +514,7 @@ describe("Staking", () => {
 
             await staking.connect(user).harvest(1)
             const finalInfo = await staking.userInfo(user.address)
-            expect(finalInfo.accumulatedReward).to.be.closeTo(expectedReward, approximate)
+            expect(finalInfo.availableHarvest).to.be.closeTo(expectedReward, approximate)
         })
 
         it("if no one farms there should be 0 income at any block after somebody got in, his APY should suite rules", async () => {
@@ -556,7 +583,7 @@ describe("Staking", () => {
             await setTimestamp(lastTS + time.month)
             const reward = await getRewardInNextBlock(wallet.address);
 
-            expect((await staking.userInfo(wallet.address)).accumulatedReward).to.eq(0);
+            expect((await staking.userInfo(wallet.address)).availableHarvest).to.eq(0);
             await staking.harvest(reward)
             expect(await staking.balanceOf(wallet.address)).to.eq(amount)
         })

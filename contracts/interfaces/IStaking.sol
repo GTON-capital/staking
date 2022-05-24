@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 
-pragma solidity 0.8.13;
+pragma solidity >=0.8.14;
 
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
@@ -41,7 +41,10 @@ interface IStaking is IERC20, IERC20Metadata {
 
     /* ========== EVENTS ========== */
 
-    event Pause(bool flag);
-    event UnstakePermit(bool flag);
-    event SetApr(uint oldBasisPoints, uint newBasisPoints);
+    event Pause(bool indexed flag);
+    event UnstakePermit(bool indexed flag);
+    event SetApr(uint indexed oldBasisPoints, uint indexed newBasisPoints);
+    event Stake(address indexed user, uint indexed amount);
+    event Unstake(address indexed user, uint indexed amount);
+    event Harvest(address indexed user, uint indexed amount);
 }
