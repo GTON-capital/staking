@@ -28,7 +28,7 @@ module.exports = {
       url: "http://127.0.0.1:8545",
     },
     mainnet: {
-      url: "https://rinkeby.infura.io/v3/9aa3d95b3bc440fa88ea12eaa4456161",
+      url: "https://mainnet.infura.io/v3/9aa3d95b3bc440fa88ea12eaa4456161",
       accounts: [PRIVATE_KEY],
       gasPrice: 120 * 1000000000,
       chainId: 1,
