@@ -20,7 +20,7 @@ export const stakingFixture: Fixture<CompoundFixture> = async function (): Promi
         gton.address,
         "sGTON",
         "sGTON",
-        2500,
+        1200,
         86400, // seconds in day
         )
     ) as Staking

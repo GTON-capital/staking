@@ -56,7 +56,7 @@ describe("Staking", () => {
         expect(await staking.accumulatedRewardPerShare()).to.eq(0)
         expect(await staking.decimals()).to.eq(await gton.decimals())
         expect(await staking.lastRewardTimestamp()).to.eq(lastBlock)
-        expect(await staking.aprBasisPoints()).to.eq(2500)
+        expect(await staking.aprBasisPoints()).to.eq(1200)
     })
 
     it("update owner", async () => {
