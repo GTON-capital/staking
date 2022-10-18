@@ -34,6 +34,10 @@ module.exports = {
       gasPrice: 26 * 1e9,
       chainId: 1,
     },
+    gton: {
+      url: "https://rpc.gton.network/",
+      accounts: [PRIVATE_KEY],
+    },
     rinkeby: {
       url: "https://rinkeby.infura.io/v3/9aa3d95b3bc440fa88ea12eaa4456161",
       accounts: [PRIVATE_KEY],
@@ -94,11 +98,11 @@ module.exports = {
   solidity: {
     compilers: [
       {
-        version: "0.8.14",
+        version: "0.8.17",
         settings: {
           optimizer: {
             enabled: true,
-            runs: 800
+            runs: 1
           }
         }
       }

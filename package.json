@@ -20,6 +20,7 @@
   },
   "scripts": {
     "staking:deploy:ethereum": "hardhat run --network mainnet ./scripts/deployStaking.js",
+    "staking:deploy:gton": "hardhat run --network gton ./scripts/deployStaking.js",
     "staking:deploy:ropsten": "hardhat run --network ropsten ./scripts/deployStaking.js",
     "staking:deploy:ftmtest": "hardhat run --network ftmTestnet ./scripts/deployStaking.js",
     "claim:deploy:ftm": "hardhat run --network ftm ./scripts/deployClaimPostAudit.js",
