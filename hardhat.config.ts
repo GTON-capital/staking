@@ -1,21 +1,17 @@
-import '@typechain/hardhat'
-import '@nomiclabs/hardhat-ethers'
-import '@nomiclabs/hardhat-waffle'
-import "@nomiclabs/hardhat-etherscan"
-import "hardhat-gas-reporter"
+import "@typechain/hardhat";
+import "@nomiclabs/hardhat-ethers";
+import "@nomiclabs/hardhat-waffle";
+import "@nomiclabs/hardhat-etherscan";
+import "hardhat-gas-reporter";
+import "./scripts/withdrawal.js";
 
-require('dotenv').config();
+require("dotenv").config();
 import { resolve } from "path";
 import { config as dotenvConfig } from "dotenv";
 dotenvConfig({ path: resolve(__dirname, "./.env") });
 
-const { 
-  PRIVATE_KEY, 
-  ETHERSCAN, 
-  POLYGONSCAN, 
-  FTMSCAN, 
-  INFURA_API_KEY 
-} = process.env;
+const { PRIVATE_KEY, ETHERSCAN, POLYGONSCAN, FTMSCAN, INFURA_API_KEY } =
+  process.env;
 
 module.exports = {
   abiExporter: {
@@ -58,22 +54,22 @@ module.exports = {
       url: "https://xapi.testnet.fantom.network/lachesis",
       accounts: [PRIVATE_KEY],
       // gasPrice: 35000000000,
-    }
+    },
   },
   etherscan: {
     apiKey: {
-        mainnet: ETHERSCAN,
-        ropsten: ETHERSCAN,
-        rinkeby: ETHERSCAN,
-        goerli: ETHERSCAN,
-        kovan: ETHERSCAN,
-        // ftm
-        opera: FTMSCAN,
-        ftmTestnet: FTMSCAN,
-        // polygon
-        polygon: POLYGONSCAN,
-        polygonMumbai: POLYGONSCAN,
-    }
+      mainnet: ETHERSCAN,
+      ropsten: ETHERSCAN,
+      rinkeby: ETHERSCAN,
+      goerli: ETHERSCAN,
+      kovan: ETHERSCAN,
+      // ftm
+      opera: FTMSCAN,
+      ftmTestnet: FTMSCAN,
+      // polygon
+      polygon: POLYGONSCAN,
+      polygonMumbai: POLYGONSCAN,
+    },
   },
   mocha: {
     timeout: 20000,
@@ -102,10 +98,10 @@ module.exports = {
         settings: {
           optimizer: {
             enabled: true,
-            runs: 1
-          }
-        }
-      }
+            runs: 1,
+          },
+        },
+      },
     ],
   },
   spdxLicenseIdentifier: {
@@ -123,4 +119,4 @@ module.exports = {
       verbose: true,
     },
   },
-}
+};
